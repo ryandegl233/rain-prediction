@@ -21,6 +21,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 import accelerate
 import hydra
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import torch
 from accelerate import Accelerator
 from accelerate.state import PartialState
@@ -31,11 +35,13 @@ from tqdm import tqdm
 
 from src.networks.spatial_rain_upsample.upsampler import (
     MultimodalSpatialEnhancementFrontend,
+    SpatialFrontendOutput,
     frontend_unsupervised_loss,
     psnr,
     resize_bcthw,
     ssim_global,
 )
+from src.utils.visualization.plot import plot_any_modality
 
 
 def get_frontend_cosine_schedule_with_warmup(
@@ -206,7 +212,9 @@ class SpatialFrontendTrainer:
             "frontend/degraded_ssim": torch.stack(ssim_values).mean().detach(),
         }
 
-    def _compute_loss_and_logs(self, batch: Mapping[str, torch.Tensor]) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+    def _compute_loss_logs_and_output(
+        self, batch: Mapping[str, torch.Tensor]
+    ) -> tuple[torch.Tensor, dict[str, torch.Tensor], dict[str, torch.Tensor], SpatialFrontendOutput]:
         inputs = self._extract_inputs(batch)
         output = self.frontend(**inputs)
         loss, logs = frontend_unsupervised_loss(
@@ -218,6 +226,10 @@ class SpatialFrontendTrainer:
             guide_weights=dict(self.loss_cfg.get("guide_weights", {})),
         )
         logs.update(self._degraded_metrics(output.enhanced(), inputs))
+        return loss, logs, inputs, output
+
+    def _compute_loss_and_logs(self, batch: Mapping[str, torch.Tensor]) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+        loss, logs, _inputs, _output = self._compute_loss_logs_and_output(batch)
         return loss, logs
 
     def train_step(self, batch: Mapping[str, torch.Tensor]) -> tuple[dict[str, torch.Tensor], bool]:
@@ -246,6 +258,61 @@ class SpatialFrontendTrainer:
             _loss, logs = self._compute_loss_and_logs(batch)
         return logs
 
+    def _visual_tensor(self, x: torch.Tensor, *, frame_idx: int) -> torch.Tensor:
+        x = x.detach().float().cpu()
+        frame_idx = max(-int(x.shape[2]), min(int(frame_idx), int(x.shape[2]) - 1))
+        return x[:1, :, frame_idx]
+
+    def _plot_modality(self, ax: plt.Axes, x: torch.Tensor, *, modality_name: str, title: str) -> None:
+        image = plot_any_modality(
+            x,
+            modality_name=modality_name,  # type: ignore[arg-type]
+            to_PIL=False,
+        )
+        ax.imshow(image)
+        ax.set_title(title, fontsize=9)
+        ax.axis("off")
+
+    @torch.no_grad()
+    def _save_val_visualization(
+        self,
+        inputs: Mapping[str, torch.Tensor],
+        output: SpatialFrontendOutput,
+    ) -> None:
+        if not self.accelerator.is_main_process or not bool(self.val_cfg.get("save_visuals", True)):
+            return
+
+        frame_idx = int(self.val_cfg.get("visual_frame_idx", -1))
+        visual_dir = self.proj_dir / "val_visualizations"
+        visual_dir.mkdir(parents=True, exist_ok=True)
+
+        enhanced = output.enhanced()
+        bases = output.bases()
+        fig, axes = plt.subplots(3, 4, figsize=(13.5, 10.0), squeeze=False)
+        columns = ("input_448", "base_1024", "enhanced_1024", "degraded_448")
+        for row, modality in enumerate(("radar", "satellite", "rain")):
+            low_ref = inputs[modality]
+            degraded = resize_bcthw(
+                enhanced[modality],
+                size=(int(low_ref.shape[-2]), int(low_ref.shape[-1])),
+                mode="area",
+            )
+            tensors = (low_ref, bases[modality], enhanced[modality], degraded)
+            for col, (name, tensor) in enumerate(zip(columns, tensors)):
+                self._plot_modality(
+                    axes[row, col],
+                    self._visual_tensor(tensor, frame_idx=frame_idx),
+                    modality_name=modality,
+                    title=f"{modality} {name}",
+                )
+
+        fig.suptitle(f"Validation visualization at step {self.global_step}", fontsize=12)
+        fig.tight_layout()
+        path = visual_dir / f"val_step_{self.global_step:08d}.png"
+        fig.savefig(path, dpi=int(self.val_cfg.get("visual_dpi", 160)), bbox_inches="tight")
+        plt.close(fig)
+        self.log_msg(f"Saved validation visualization: {path}")
+
     def _log_metrics(self, logs: Mapping[str, torch.Tensor], prefix: str = "train") -> None:
         if not self.accelerator.is_main_process:
             return
@@ -265,7 +332,10 @@ class SpatialFrontendTrainer:
         sums: dict[str, torch.Tensor] = {}
         count = 0
         for batch in tqdm(self.val_dataloader, desc="Val", disable=not self.accelerator.is_main_process):
-            logs = self.val_step(batch)
+            with self.accelerator.autocast():
+                _loss, logs, inputs, output = self._compute_loss_logs_and_output(batch)
+            if count == 0:
+                self._save_val_visualization(inputs, output)
             for key, value in logs.items():
                 sums[key] = sums.get(key, torch.zeros_like(value.detach().float())) + value.detach().float()
             count += 1
