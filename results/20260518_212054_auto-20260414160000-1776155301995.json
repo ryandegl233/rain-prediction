@@ -1,0 +1,43 @@
+{
+    "event_id": "auto-20260414160000-1776155301995",
+    "file_time": 1776057600,
+    "model_type": "4",
+    "success": true,
+    "used_times": [
+        "20260417_1130",
+        "20260417_1140",
+        "20260417_1150",
+        "20260417_1200",
+        "20260417_1210"
+    ],
+    "pred_shape": [
+        1,
+        5,
+        5,
+        256,
+        256
+    ],
+    "pred_distribution": {
+        "counts": [
+            325408,
+            1933,
+            77,
+            220,
+            42
+        ],
+        "ratios": [
+            0.9930664300918579,
+            0.0058990479446947575,
+            0.0002349853457417339,
+            0.00067138671875,
+            0.0001281738223042339
+        ]
+    },
+    "metrics": {
+        "available": false,
+        "message": "no aligned future GT frames"
+    },
+    "images": [
+        "/home/rainpred/RainPrediction/results/auto-20260414160000-1776155301995/vis/20260518_212053_trainer_style.jpg"
+    ]
+}

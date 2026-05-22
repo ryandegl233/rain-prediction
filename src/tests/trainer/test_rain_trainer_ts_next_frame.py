@@ -1,10 +1,12 @@
 from contextlib import nullcontext
 
+import pytest
 import torch
 import torch.nn as nn
 from omegaconf import OmegaConf
 
 from src.trainer.rain_trainer_ts_next_frame import RainTSNextFrameTrainer, apply_context_modality_dropout
+import src.trainer.rain_trainer_ts_next_frame as trainer_mod
 
 
 class DummyAccelerator:
@@ -530,3 +532,223 @@ def test_train_step_with_gan_enabled_outputs_gan_logs() -> None:
     assert "gan/d_loss" in logs
     assert "gan/g_loss" in logs
     assert float(logs["meta/gan_enabled"].item()) == 1.0
+
+
+def test_temporal_diff_warmup_weight_progression() -> None:
+    trainer = _make_trainer_for_batch(target_mode="block", block_size=3)
+    trainer.train_cfg.loss = {
+        "mode": "mse",
+        "temporal_diff": {
+            "enabled": True,
+            "weight_init": 0.0,
+            "weight_max": 1.0,
+            "warmup_steps": 10,
+            "apply_on": "rain",
+        },
+        "rain_region_weight": {"enabled": False},
+        "rain_event_aux": {"enabled": False},
+    }
+
+    pred = {
+        "radar": torch.zeros(1, 1, 3, 2, 2),
+        "satellite": torch.zeros(1, 10, 3, 2, 2),
+        "rain": torch.tensor([[[[[0.0, 0.0], [0.0, 0.0]], [[0.0, 0.0], [0.0, 0.0]], [[2.0, 2.0], [2.0, 2.0]]]]]),
+    }
+    target = {
+        "radar": torch.zeros(1, 1, 3, 2, 2),
+        "satellite": torch.zeros(1, 10, 3, 2, 2),
+        "rain": torch.zeros(1, 1, 3, 2, 2),
+    }
+    aux = {
+        "sequence_loss_enabled": 1,
+        "sequence_context_frames": 1,
+        "sequence_future_frames": 2,
+        "sequence_context_weight": 1.0,
+        "sequence_future_weight": 1.0,
+    }
+
+    trainer.global_step = 0
+    _, logs0 = trainer._next_prediction_loss(pred=pred, target_gt=target, aux=aux)
+    trainer.global_step = 10
+    _, logs1 = trainer._next_prediction_loss(pred=pred, target_gt=target, aux=aux)
+
+    assert float(logs0["meta/temporal_diff_weight"].item()) == pytest.approx(0.0, abs=1e-6)
+    assert float(logs1["meta/temporal_diff_weight"].item()) == pytest.approx(1.0, abs=1e-6)
+    assert float(logs1["loss/temporal_diff"].item()) > float(logs0["loss/temporal_diff"].item())
+
+
+
+def test_temporal_diff_uses_anchor_for_single_target_frame() -> None:
+    trainer = _make_trainer_for_batch(target_mode="next_frame", block_size=1)
+    trainer.train_cfg.loss = {
+        "mode": "mse",
+        "temporal_diff": {
+            "enabled": True,
+            "weight_init": 1.0,
+            "weight_max": 1.0,
+            "warmup_steps": 0,
+            "apply_on": "rain",
+        },
+    }
+
+    pred = {
+        "radar": torch.zeros(1, 1, 1, 1, 1),
+        "satellite": torch.zeros(1, 10, 1, 1, 1),
+        "rain": torch.tensor([[[[[2.0]]]]]),
+    }
+    target = {
+        "radar": torch.zeros(1, 1, 1, 1, 1),
+        "satellite": torch.zeros(1, 10, 1, 1, 1),
+        "rain": torch.tensor([[[[[3.0]]]]]),
+    }
+    aux = {
+        "sequence_loss_enabled": 0,
+        "temporal_diff_anchor": {
+            "radar": torch.zeros(1, 1, 1, 1, 1),
+            "satellite": torch.zeros(1, 10, 1, 1, 1),
+            "rain": torch.tensor([[[[[1.0]]]]]),
+        },
+    }
+
+    _loss, logs = trainer._next_prediction_loss(pred=pred, target_gt=target, aux=aux)
+
+    assert float(logs["loss/rain_diff"].item()) == pytest.approx(1.0, abs=1e-6)
+
+
+def test_temporal_diff_matches_mse_when_using_first_target_frame_reference() -> None:
+    trainer = _make_trainer_for_batch(target_mode="block", block_size=2)
+    trainer.train_cfg.loss = {
+        "mode": "mse",
+        "temporal_diff": {
+            "enabled": True,
+            "weight_init": 1.0,
+            "weight_max": 1.0,
+            "warmup_steps": 0,
+            "apply_on": "rain",
+        },
+    }
+
+    pred = {
+        "radar": torch.zeros(1, 1, 2, 1, 1),
+        "satellite": torch.zeros(1, 10, 2, 1, 1),
+        "rain": torch.tensor([[[[[2.0]], [[5.0]]]]]),
+    }
+    target = {
+        "radar": torch.zeros(1, 1, 2, 1, 1),
+        "satellite": torch.zeros(1, 10, 2, 1, 1),
+        "rain": torch.tensor([[[[[3.0]], [[7.0]]]]]),
+    }
+    aux = {
+        "sequence_loss_enabled": 0,
+        "temporal_diff_anchor": {
+            "radar": torch.zeros(1, 1, 1, 1, 1),
+            "satellite": torch.zeros(1, 10, 1, 1, 1),
+            "rain": torch.zeros(1, 1, 1, 1, 1),
+        },
+    }
+
+    _loss, logs = trainer._next_prediction_loss(pred=pred, target_gt=target, aux=aux)
+
+    expected = torch.mean((pred["rain"] - target["rain"]).pow(2))
+    assert float(logs["loss/rain_diff"].item()) == pytest.approx(float(expected.item()), abs=1e-6)
+
+
+def test_temporal_diff_radar_guided_weight_emphasizes_radar_change() -> None:
+    trainer = _make_trainer_for_batch(target_mode="next_frame", block_size=1)
+    trainer.train_cfg.loss = {
+        "mode": "mse",
+        "temporal_diff": {
+            "enabled": True,
+            "weight_init": 1.0,
+            "weight_max": 1.0,
+            "warmup_steps": 0,
+            "apply_on": "rain",
+            "radar_guided": {
+                "enabled": True,
+                "alpha": 3.0,
+                "echo_beta": 0.0,
+                "max_weight": 0.0,
+                "eps": 1.0e-6,
+            },
+        },
+    }
+
+    pred_rain = torch.zeros(1, 1, 1, 2, 2)
+    pred_rain[:, :, :, 0, 0] = 2.0
+    target_radar = torch.zeros(1, 1, 1, 2, 2)
+    target_radar[:, :, :, 0, 0] = 1.0
+    pred = {
+        "radar": torch.zeros(1, 1, 1, 2, 2),
+        "satellite": torch.zeros(1, 10, 1, 2, 2),
+        "rain": pred_rain,
+    }
+    target = {
+        "radar": target_radar,
+        "satellite": torch.zeros(1, 10, 1, 2, 2),
+        "rain": torch.zeros(1, 1, 1, 2, 2),
+    }
+    aux = {
+        "sequence_loss_enabled": 0,
+        "temporal_diff_anchor": {
+            "radar": torch.zeros(1, 1, 1, 2, 2),
+            "satellite": torch.zeros(1, 10, 1, 2, 2),
+            "rain": torch.zeros(1, 1, 1, 2, 2),
+        },
+    }
+
+    _loss, logs = trainer._next_prediction_loss(pred=pred, target_gt=target, aux=aux)
+
+    assert float(logs["loss/rain_diff"].item()) > 1.0
+    assert float(logs["meta/radar_guided_diff_weight_mean"].item()) == pytest.approx(1.0, abs=1e-6)
+    assert float(logs["meta/radar_guided_diff_weight_max"].item()) > 1.0
+
+
+def test_log_msg_appends_to_log_file(tmp_path, monkeypatch) -> None:
+    class DummyLogger:
+        @staticmethod
+        def info(msg: str) -> None:
+            _ = msg
+
+    class DummyAcceleratorForLog:
+        is_main_process = True
+        process_index = 0
+
+        @staticmethod
+        def main_process_first():
+            return nullcontext()
+
+    trainer = object.__new__(RainTSNextFrameTrainer)
+    trainer.accelerator = DummyAcceleratorForLog()
+    trainer.log_file = tmp_path / "log.log"
+    trainer.log_file.write_text("")
+
+    monkeypatch.setattr(trainer_mod, "logger", DummyLogger())
+
+    trainer.log_msg("hello log file")
+
+    assert "hello log file" in trainer.log_file.read_text()
+
+
+def test_log_tensorboard_scalars_writes_scalars() -> None:
+    class DummyWriter:
+        def __init__(self) -> None:
+            self.records: list[tuple[str, float, int]] = []
+            self.flushed = False
+
+        def add_scalar(self, tag: str, value: float, step: int) -> None:
+            self.records.append((tag, value, step))
+
+        def flush(self) -> None:
+            self.flushed = True
+
+    class DummyAcceleratorForLog:
+        is_main_process = True
+
+    trainer = object.__new__(RainTSNextFrameTrainer)
+    trainer.accelerator = DummyAcceleratorForLog()
+    trainer.tensorboard_writer = DummyWriter()
+
+    trainer._log_tensorboard_scalars({"train/loss": 1.25, "lr": 0.0003}, step=7)
+
+    assert trainer.tensorboard_writer.records == [("train/loss", 1.25, 7), ("lr", 0.0003, 7)]
+    assert trainer.tensorboard_writer.flushed is True

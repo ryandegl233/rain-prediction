@@ -116,7 +116,7 @@ dataset:
     iterate_over_all: true
     is_cycled: false
     use_streaming_loader: true
-    batch_size: 3
+    batch_size: 6
     shuffle: true
     num_workers: 4
     persistent_workers: true
@@ -171,7 +171,7 @@ dataset:
 train:
   seed: 2025
   max_steps: 100000
-  proj_dir: null
+  proj_dir: runs/time_series_next_frame/
   save_every: 1000
   resume_path:
   max_grad_norm: 1.0
@@ -194,13 +194,25 @@ train:
 
   loss_weights:
     radar: 1.0
-    satellite: 4.0
-    rain: 1.0
+    satellite: 1.0
+    rain: 2.0
 
   loss:
     mode: mse # mse | enhanced
+    temporal_diff:
+      enabled: true
+      weight_init: 0.0
+      weight_max: 5
+      warmup_steps: 0
+      apply_on: rain # rain | all
+      radar_guided:
+        enabled: true
+        alpha: 3.0  #变化区域
+        echo_beta: 1  #雷达回波区域
+        max_weight: 8.0
+        eps: 1.0e-6
     rain_region_weight:
-      enabled: false
+      enabled: true
       alpha: 2.0
       r0: 0.05
       gamma: 1.0
@@ -286,7 +298,7 @@ train:
   debug: false
 
 val:
-  val_duration: 200
+  val_duration: 2000
   max_val_iters: 60
   rollout_mode: block # frame | block
   rollout_block_size: ${train.next_pred.block_size}

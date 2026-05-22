@@ -1,0 +1,21 @@
+[submodule "src/third_party/matrix_game"]
+	path = src/third_party/matrix_game
+	url = https://github.com/SkyworkAI/Matrix-Game.git
+[submodule "src/third_party/self_forcing"]
+	path = src/third_party/self_forcing
+	url = https://github.com/guandeh17/Self-Forcing.git
+[submodule "src/third_party/causal_forcing"]
+	path = src/third_party/causal_forcing
+	url = https://github.com/thu-ml/Causal-Forcing.git
+[submodule "src/third_party/cosmos_predict_2_5"]
+	path = src/third_party/cosmos_predict_2_5
+	url = https://github.com/nvidia-cosmos/cosmos-predict2.5.git
+[submodule "src/utils/optim/flashoptim"]
+	path = src/utils/optim/flashoptim
+	url = https://github.com/databricks/flashoptim.git
+[submodule "src/utils/optim/hyperball_emerging_optimizers"]
+	path = src/utils/optim/hyperball_emerging_optimizers
+	url = https://github.com/mkhona-nvidia/Emerging-Optimizers.git
+[submodule "src/utils/optim/gram_newton_schulz"]
+	path = src/utils/optim/gram_newton_schulz
+	url = https://github.com/Dao-AILab/gram-newton-schulz.git

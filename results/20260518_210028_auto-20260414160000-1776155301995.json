@@ -1,0 +1,47 @@
+{
+    "event_id": "auto-20260414160000-1776155301995",
+    "file_time": 1776057600,
+    "model_type": "4",
+    "success": true,
+    "used_times": [
+        "20260417_1130",
+        "20260417_1140",
+        "20260417_1150",
+        "20260417_1200",
+        "20260417_1210"
+    ],
+    "pred_shape": [
+        1,
+        5,
+        5,
+        256,
+        256
+    ],
+    "pred_distribution": {
+        "counts": [
+            326111,
+            1318,
+            66,
+            172,
+            13
+        ],
+        "ratios": [
+            0.9952117800712585,
+            0.0040222168900072575,
+            0.00020141601271461695,
+            0.0005249023670330644,
+            3.967285010730848e-05
+        ]
+    },
+    "metrics": {
+        "available": false,
+        "message": "no aligned future GT frames"
+    },
+    "images": [
+        "/home/rainpred/RainPrediction/results/auto-20260414160000-1776155301995/20260518_210028_pred_t01.png",
+        "/home/rainpred/RainPrediction/results/auto-20260414160000-1776155301995/20260518_210028_pred_t02.png",
+        "/home/rainpred/RainPrediction/results/auto-20260414160000-1776155301995/20260518_210028_pred_t03.png",
+        "/home/rainpred/RainPrediction/results/auto-20260414160000-1776155301995/20260518_210028_pred_t04.png",
+        "/home/rainpred/RainPrediction/results/auto-20260414160000-1776155301995/20260518_210028_pred_t05.png"
+    ]
+}

@@ -1,0 +1,312 @@
+rain_prediction_model:
+  _target_: src.networks.time_series.causal_patch_transformer_next_frame.RainCausalPatchTransformerNextFrame
+  in_channels: 12
+  out_channels: 1
+  radar_out_channels: 1
+  satellite_out_channels: 10
+  rain_out_channels: 1
+  input_size: 448
+  patch_size: 8
+  frame_patch_size: 2
+  encoder_type: patch
+  encoder_spatial_downsample_stages: 4
+  encoder_temporal_downsample_stages: 1
+  encoder_causal: true
+  encoder_conv_style: wan_factorized
+  use_modality_mask_token: true
+  stem_channels: 384
+  stem_pad_mode: reflect
+  dim: 384
+  depth: 6
+  num_heads: 8
+  mlp_ratio: 4.0
+  dropout: 0.0
+  drop_path: 0.0
+  max_frames: 16
+  decoder_base_channels: 128
+  use_spatial_rope_2d: true
+  use_temporal_rope_1d: true
+  rope_theta_spatial: 10000.0
+  rope_theta_temporal: 2000.0
+  rope_fraction_spatial: 1.0
+  rope_fraction_temporal: 1.0
+  decoder_type: 3d
+  decoder_pad_mode: reflect
+  decoder_upsample_mode: nearest_conv
+  decoder_k_size: 7
+  decoder_causal: true
+  decoder_condition_mode: none
+  decoder_output_mode: pixels
+  use_time_embedding: true
+  activation_checkpoint: true
+accelerator:
+  _target_: accelerate.Accelerator
+  mixed_precision: bf16
+  log_with: tensorboard
+  dataloader_config:
+    _target_: accelerate.utils.DataLoaderConfiguration
+    split_batches: false
+    even_batches: false
+    non_blocking: true
+    dispatch_batches: null
+    use_seedable_sampler: true
+    use_stateful_dataloader: false
+  project_config:
+    _target_: accelerate.utils.ProjectConfiguration
+    project_dir: runs/time_series_next_frame/
+    logging_dir: runs/time_series_next_frame/tensorboard
+    total_limit: 2
+    automatic_checkpoint_naming: true
+  gradient_accumulation_plugin:
+    _target_: accelerate.utils.GradientAccumulationPlugin
+    num_steps: 1
+    adjust_scheduler: true
+    sync_with_dataloader: false
+    sync_each_batch: false
+ema:
+  beta: 0.999
+  update_after_step: 1000
+  update_every: 1
+dataset:
+  n_past: 4
+  n_futures: 6
+  img_size: 448
+  time_interval: 30
+  train_inp_dirs:
+  - data2/litdata_train_2025/litdata_interval_30/202508
+  val_inp_dirs:
+  - data2/litdata_train_2025/litdata_interval_30/202508
+  rain_norm:
+    mean: 0.004600618807
+    std: 0.04793536605
+  modality_zero_centering: false
+  value_clip:
+    enabled: true
+    radar_min: 0.0
+    radar_max: 60.0
+    satellite_min: 0.0
+    satellite_max: 300.0
+    rain_min: 0.0
+    rain_max: null
+  rain_ratio_filter:
+    enabled: false
+    file_name: metadata_rain_ratio.parquet
+    column: rain_ratio_gt_0p02
+    min_value: 0.02
+    mode: future_any
+  augmentation:
+    train_enabled: false
+    val_enabled: false
+    random_crop_prob: 0.5
+    random_crop_min_scale: 0.8
+    random_crop_max_scale: 1.0
+    random_crop_keep_size: true
+    temporal_reverse_prob: 0.1
+  train:
+    _target_: src.dataset.rain_ts_litdata.get_litdata_rain_ts_dataloader
+    inp_dirs:
+    - data2/litdata_train_2025/litdata_interval_30/202508
+    time_interval: 30
+    n_past: 4
+    n_futures: 6
+    img_resize: 448
+    stack_data: true
+    index_file_name: null
+    modality_zero_centering: false
+    rain_norm_mean: 0.004600618807
+    rain_norm_std: 0.04793536605
+    clip_values: true
+    radar_clip_min: 0.0
+    radar_clip_max: 60.0
+    satellite_clip_min: 0.0
+    satellite_clip_max: 300.0
+    rain_clip_min: 0.0
+    rain_clip_max: null
+    rain_ratio_filter_enabled: false
+    rain_ratio_filter_file_name: metadata_rain_ratio.parquet
+    rain_ratio_filter_column: rain_ratio_gt_0p02
+    rain_ratio_filter_min_value: 0.02
+    rain_ratio_filter_mode: future_any
+    aug_enabled: false
+    aug_random_crop_prob: 0.5
+    aug_random_crop_min_scale: 0.8
+    aug_random_crop_max_scale: 1.0
+    aug_random_crop_keep_size: true
+    aug_temporal_reverse_prob: 0.1
+    batching_method: per_stream
+    iterate_over_all: true
+    is_cycled: false
+    use_streaming_loader: true
+    batch_size: 5
+    shuffle: true
+    num_workers: 4
+    persistent_workers: true
+    pin_memory: true
+    drop_last: true
+    prefetch_factor: 2
+    iter_index_mode: shuffle_each_epoch
+  val:
+    _target_: src.dataset.rain_ts_litdata.get_litdata_rain_ts_dataloader
+    inp_dirs:
+    - data2/litdata_train_2025/litdata_interval_30/202508
+    time_interval: 30
+    n_past: 4
+    n_futures: 6
+    img_resize: 448
+    stack_data: true
+    index_file_name: null
+    modality_zero_centering: false
+    rain_norm_mean: 0.004600618807
+    rain_norm_std: 0.04793536605
+    clip_values: true
+    radar_clip_min: 0.0
+    radar_clip_max: 60.0
+    satellite_clip_min: 0.0
+    satellite_clip_max: 300.0
+    rain_clip_min: 0.0
+    rain_clip_max: null
+    rain_ratio_filter_enabled: false
+    rain_ratio_filter_file_name: metadata_rain_ratio.parquet
+    rain_ratio_filter_column: rain_ratio_gt_0p02
+    rain_ratio_filter_min_value: 0.02
+    rain_ratio_filter_mode: future_any
+    aug_enabled: false
+    aug_random_crop_prob: 0.0
+    aug_random_crop_min_scale: 1.0
+    aug_random_crop_max_scale: 1.0
+    aug_random_crop_keep_size: true
+    aug_temporal_reverse_prob: 0.0
+    batching_method: per_stream
+    iterate_over_all: true
+    is_cycled: false
+    use_streaming_loader: true
+    batch_size: 4
+    shuffle: true
+    num_workers: 1
+    persistent_workers: true
+    pin_memory: false
+    drop_last: true
+    prefetch_factor: 2
+    iter_index_mode: shuffle_each_epoch
+train:
+  seed: 2025
+  max_steps: 100000
+  proj_dir: vis/hydra_demo
+  save_every: 1000
+  resume_path: null
+  max_grad_norm: 1.0
+  strict_target_isolation: false
+  next_pred:
+    target_mode: next_frame
+    block_size: 1
+    sequence_loss:
+      enabled: true
+      context_weight: 1.0
+      future_weight: 1.0
+    missing_modality:
+      enabled: true
+      drop_probs:
+        radar: 0.15
+        satellite: 0.15
+        rain: 0.05
+      min_available_modalities: 1
+  loss_weights:
+    radar: 1.0
+    satellite: 4.0
+    rain: 1.0
+  loss:
+    mode: mse
+    rain_region_weight:
+      enabled: false
+      alpha: 2.0
+      r0: 0.05
+      gamma: 1.0
+    rain_event_aux:
+      enabled: false
+      type: bce
+      thresholds:
+      - 0.1
+      - 0.3
+      - 0.5
+      weight: 0.2
+      logit_scale: 10.0
+      focal_gamma: 2.0
+      focal_alpha: 0.25
+  gan:
+    enabled: false
+    max_grad_norm: 1.0
+    discriminator:
+      _target_: src.networks.GAN.patchgan3d.PatchGAN3D
+      context_channels: 12
+      target_channels: 12
+      base_channels: 64
+      channel_multipliers:
+      - 1
+      - 2
+      - 4
+      - 8
+      norm_layer: rmsnorm2dfp32
+      norm_max_groups: 32
+      act_negative_slope: 0.2
+    loss:
+      type: ns
+      g_weight: 0.1
+      d_weight: 1.0
+      r1_weight: 0.0
+      r2_weight: 0.0
+    optimizer:
+      _target_: torch.optim.AdamW
+      _partial_: true
+      lr: 0.0002
+      betas:
+      - 0.0
+      - 0.99
+      weight_decay: 0.0
+    scheduler:
+      _target_: src.utils.train_utils.lr_scheduler.get_cosine_schedule_reduced_with_warmup
+      _partial_: true
+      num_warmup_steps: 0
+      num_training_steps: 100000
+      num_cycles: 1
+      reduced_factor: 2
+      min_lr: 1.0e-05
+  optim:
+    _target_: torch.optim.AdamW
+    _partial_: true
+    lr: 0.0003
+    betas:
+    - 0.9
+    - 0.95
+    weight_decay: 0.0001
+  scheduler:
+    _target_: src.utils.train_utils.lr_scheduler.get_cosine_schedule_reduced_with_warmup
+    _partial_: true
+    num_warmup_steps: 0
+    num_training_steps: 100000
+    num_cycles: 1
+    reduced_factor: 2
+    min_lr: 1.0e-05
+  log:
+    run_comment: stage1_next_frame_block
+    log_with_time: false
+    log_every: 10
+  debug: true
+val:
+  val_duration: 200
+  max_val_iters: 60
+  rollout_mode: block
+  rollout_block_size: 1
+  rollout_history_detach: true
+  rollout_use_gt_future_modalities: true
+  after_roll_next:
+    enabled: false
+    roll_frames: 1
+    detach_history: true
+  metric_data_range: 1.0
+  csi_thresholds:
+  - 0.1
+  - 0.3
+  - 0.5
+  save_visuals: true
+  viz_sample_index: -1
+  viz_satellite_channel: 0
