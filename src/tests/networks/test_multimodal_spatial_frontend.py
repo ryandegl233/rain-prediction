@@ -63,8 +63,8 @@ def test_temporal_chunk_size_one_matches_full_time_output_shapes() -> None:
     assert torch.allclose(chunked.rain, full.rain)
 
 
-def test_frontend_v1_outputs_1024_from_448() -> None:
-    radar, satellite, rain = _make_inputs(batch=1, frames=1, size=448)
+def test_frontend_v1_outputs_1024_from_256() -> None:
+    radar, satellite, rain = _make_inputs(batch=1, frames=1, size=256)
     model = MultimodalSpatialEnhancementFrontend(
         feature_channels=1,
         shared_depth=0,
@@ -143,11 +143,11 @@ def test_frontend_unsupervised_loss_backward_runs() -> None:
 
 
 def test_degradation_loss_downsamples_to_low_reference_shape() -> None:
-    low = torch.rand(1, 1, 1, 448, 448)
+    low = torch.rand(1, 1, 1, 256, 256)
     high = resize_bcthw(low, size=(1024, 1024))
 
     loss = spectral_degradation_loss(high, low)
-    degraded = resize_bcthw(high, size=(448, 448), mode="area")
+    degraded = resize_bcthw(high, size=(256, 256), mode="area")
 
     assert degraded.shape == low.shape
     assert torch.isfinite(loss)

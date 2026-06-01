@@ -36,7 +36,7 @@ accelerator:
 dataset:
   n_past: 1
   n_futures: 6
-  img_size: 448
+  img_size: 256
   time_interval: 30
   train_inp_dirs:
     - data2/litdata_train_2025/litdata_interval_30/202305
@@ -163,7 +163,7 @@ dataset:
     iter_index_mode: sequential
 
 frontend:
-  input_size: 448
+  input_size: 256
   model:
     _target_: src.networks.spatial_rain_upsample.upsampler.MultimodalSpatialEnhancementFrontend
     radar_channels: 1
@@ -213,7 +213,7 @@ train:
     reduced_factor: 2
     min_lr: 1.0e-5
   log:
-    run_comment: frontend_448_to_1024
+    run_comment: frontend_256_to_1024
     log_with_time: true
     log_every: 10
 

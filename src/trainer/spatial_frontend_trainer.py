@@ -122,7 +122,12 @@ class SpatialFrontendTrainer:
         target_size = tuple(int(v) for v in self.frontend_cfg.model.output_size)
         if target_size != (1024, 1024):
             raise ValueError(f"V1 frontend target size is fixed to (1024, 1024), got {target_size}")
-        self.log_msg("Objective: standalone 448->1024 multimodal spatial enhancement frontend")
+        input_size = int(self.frontend_cfg.get("input_size", 448))
+        output_h, output_w = target_size
+        self.log_msg(
+            f"Objective: standalone {input_size}x{input_size}->{output_h}x{output_w} "
+            "multimodal spatial enhancement frontend"
+        )
 
     def _configure_logger(self) -> Path:
         logger.remove()
@@ -289,7 +294,15 @@ class SpatialFrontendTrainer:
         enhanced = output.enhanced()
         bases = output.bases()
         fig, axes = plt.subplots(3, 4, figsize=(13.5, 10.0), squeeze=False)
-        columns = ("input_448", "base_1024", "enhanced_1024", "degraded_448")
+        input_size = int(self.frontend_cfg.get("input_size", 448))
+        output_h, output_w = (int(v) for v in self.frontend_cfg.model.output_size)
+        output_label = str(output_h) if output_h == output_w else f"{output_h}x{output_w}"
+        columns = (
+            f"input_{input_size}",
+            f"base_{output_label}",
+            f"enhanced_{output_label}",
+            f"degraded_{input_size}",
+        )
         for row, modality in enumerate(("radar", "satellite", "rain")):
             low_ref = inputs[modality]
             degraded = resize_bcthw(
