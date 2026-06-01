@@ -4,6 +4,7 @@ from src.networks.spatial_rain_upsample.upsampler import (
     MultimodalSpatialEnhancementFrontend,
     SpatialFrontendOutput,
     build_spatial_guide,
+    frontend_supervised_loss,
     frontend_unsupervised_loss,
     psnr,
     resize_bcthw,
@@ -24,6 +25,9 @@ def test_frontend_outputs_requested_spatial_size() -> None:
     radar, satellite, rain = _make_inputs(size=16)
     model = MultimodalSpatialEnhancementFrontend(
         feature_channels=8,
+        growth_channels=4,
+        dense_blocks=2,
+        dense_layers=2,
         shared_depth=1,
         scale_factor=2,
         temporal_chunk_size=1,
@@ -87,6 +91,9 @@ def test_zero_initialized_heads_match_interpolation_basis() -> None:
     radar, satellite, rain = _make_inputs(size=12)
     model = MultimodalSpatialEnhancementFrontend(
         feature_channels=8,
+        growth_channels=4,
+        dense_blocks=2,
+        dense_layers=2,
         shared_depth=1,
         output_size=(20, 20),
         residual_scale=0.25,
@@ -108,6 +115,9 @@ def test_rain_output_uses_multimodal_gate_without_direct_fused_residual() -> Non
     satellite_b = torch.rand(1, 10, 1, 8, 8)
     model = MultimodalSpatialEnhancementFrontend(
         feature_channels=4,
+        growth_channels=2,
+        dense_blocks=1,
+        dense_layers=2,
         shared_depth=0,
         output_size=(16, 16),
         temporal_chunk_size=1,
@@ -130,6 +140,9 @@ def test_chunked_zero_initialized_heads_match_interpolation_basis() -> None:
     radar, satellite, rain = _make_inputs(batch=1, frames=4, size=12)
     model = MultimodalSpatialEnhancementFrontend(
         feature_channels=4,
+        growth_channels=2,
+        dense_blocks=1,
+        dense_layers=2,
         shared_depth=1,
         output_size=(20, 20),
         residual_scale=0.25,
@@ -170,6 +183,41 @@ def test_frontend_unsupervised_loss_backward_runs() -> None:
         "loss/frontend_residual",
     }
     assert any(param.grad is not None for param in model.parameters() if param.requires_grad)
+
+
+def test_supervised_loss_prefers_enhanced_output_closer_to_hr_target() -> None:
+    radar, satellite, rain = _make_inputs(batch=1, frames=1, size=8)
+    model = MultimodalSpatialEnhancementFrontend(
+        feature_channels=4,
+        growth_channels=2,
+        dense_blocks=1,
+        dense_layers=2,
+        output_size=(16, 16),
+        residual_scale=1.0,
+    )
+    output = model(radar=radar, satellite=satellite, rain=rain)
+    rain_target = output.rain.detach().clone()
+    base_target = output.rain_base.detach().clone() + 0.25
+
+    enhanced_loss, enhanced_logs = frontend_supervised_loss(
+        output,
+        {"radar": radar, "satellite": satellite, "rain": rain},
+        {"rain": rain_target},
+    )
+    base_loss, _base_logs = frontend_supervised_loss(
+        output,
+        {"radar": radar, "satellite": satellite, "rain": rain},
+        {"rain": base_target},
+    )
+
+    assert enhanced_loss < base_loss
+    assert set(enhanced_logs) == {
+        "loss/frontend_total",
+        "loss/rain_hr_l1",
+        "loss/rain_detail_l1",
+        "loss/degradation_consistency",
+        "loss/frontend_residual",
+    }
 
 
 def test_rain_spatial_loss_uses_rain_only_guide() -> None:

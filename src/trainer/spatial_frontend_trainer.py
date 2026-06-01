@@ -3,7 +3,7 @@ Standalone trainer for the 1024 multimodal spatial enhancement frontend.
 
 This trainer intentionally does not instantiate or call the RainPred backend.
 It reuses the time-series rain dataloader contract and trains only the frontend
-with unsupervised degradation/spatial consistency losses.
+with pseudo-HR spatial enhancement targets.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import torch
+import torch.nn.functional as F
 from accelerate import Accelerator
 from accelerate.state import PartialState
 from hydra.core.hydra_config import HydraConfig
@@ -36,6 +37,7 @@ from tqdm import tqdm
 from src.networks.spatial_rain_upsample.upsampler import (
     MultimodalSpatialEnhancementFrontend,
     SpatialFrontendOutput,
+    frontend_supervised_loss,
     frontend_unsupervised_loss,
     psnr,
     resize_bcthw,
@@ -199,6 +201,19 @@ class SpatialFrontendTrainer:
             )
         return {"radar": radar, "satellite": satellite, "rain": rain}
 
+    def _extract_hr_targets(self, batch: Mapping[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        if "rain_past_hr" not in batch:
+            raise KeyError("batch must include rain_past_hr for supervised spatial frontend training")
+        rain = _ensure_bcthw(
+            batch["rain_past_hr"].to(self.device, dtype=torch.float32),
+            expected_channels=int(self.frontend_cfg.model.rain_channels),
+            name="rain_past_hr",
+        )
+        output_h, output_w = (int(v) for v in self.frontend_cfg.model.output_size)
+        if int(rain.shape[-2]) != output_h or int(rain.shape[-1]) != output_w:
+            raise ValueError(f"rain_past_hr must be {output_h}x{output_w}, got shape={tuple(rain.shape)}")
+        return {"rain": rain}
+
     def _degraded_metrics(
         self,
         outputs: Mapping[str, torch.Tensor],
@@ -217,20 +232,52 @@ class SpatialFrontendTrainer:
             "frontend/degraded_ssim": torch.stack(ssim_values).mean().detach(),
         }
 
+    def _hr_baseline_metrics(
+        self,
+        output: SpatialFrontendOutput,
+        high_targets: Mapping[str, torch.Tensor],
+    ) -> dict[str, torch.Tensor]:
+        rain_target = high_targets["rain"]
+        data_range = float(self.metric_cfg.get("data_range", 1.0))
+        base_psnr = psnr(output.rain_base, rain_target, data_range=data_range).detach()
+        enhanced_psnr = psnr(output.rain, rain_target, data_range=data_range).detach()
+        base_ssim = ssim_global(output.rain_base, rain_target, data_range=data_range).detach()
+        enhanced_ssim = ssim_global(output.rain, rain_target, data_range=data_range).detach()
+        target_detail = rain_target - output.rain_base
+        pred_detail = output.rain - output.rain_base
+        logs = {
+            "frontend/rain_base_hr_psnr": base_psnr,
+            "frontend/rain_enhanced_hr_psnr": enhanced_psnr,
+            "frontend/rain_base_hr_ssim": base_ssim,
+            "frontend/rain_enhanced_hr_ssim": enhanced_ssim,
+            "frontend/rain_base_hr_l1": F.l1_loss(output.rain_base, rain_target).detach(),
+            "frontend/rain_enhanced_hr_l1": F.l1_loss(output.rain, rain_target).detach(),
+            "frontend/rain_psnr_gain": (enhanced_psnr - base_psnr).detach(),
+            "frontend/rain_detail_l1": F.l1_loss(pred_detail, target_detail).detach(),
+            "frontend/rain_residual_abs_mean": output.rain_residual.detach().abs().mean(),
+        }
+        if output.rain_gate is not None:
+            logs["frontend/rain_gate_mean"] = output.rain_gate.detach().mean()
+            logs["frontend/rain_gate_std"] = output.rain_gate.detach().float().std(unbiased=False)
+        return logs
+
     def _compute_loss_logs_and_output(
         self, batch: Mapping[str, torch.Tensor]
     ) -> tuple[torch.Tensor, dict[str, torch.Tensor], dict[str, torch.Tensor], SpatialFrontendOutput]:
         inputs = self._extract_inputs(batch)
+        high_targets = self._extract_hr_targets(batch)
         output = self.frontend(**inputs)
-        loss, logs = frontend_unsupervised_loss(
+        loss, logs = frontend_supervised_loss(
             output,
             inputs,
-            spectral_weight=float(self.loss_cfg.get("spectral_weight", 1.0)),
-            spatial_weight=float(self.loss_cfg.get("spatial_weight", 0.1)),
+            high_targets,
+            rain_hr_weight=float(self.loss_cfg.get("rain_hr_weight", 1.0)),
+            rain_detail_weight=float(self.loss_cfg.get("rain_detail_weight", 0.25)),
+            degradation_weight=float(self.loss_cfg.get("degradation_weight", 0.1)),
             residual_weight=float(self.loss_cfg.get("residual_weight", 1.0e-4)),
-            guide_weights=dict(self.loss_cfg.get("guide_weights", {})),
         )
         logs.update(self._degraded_metrics(output.enhanced(), inputs))
+        logs.update(self._hr_baseline_metrics(output, high_targets))
         return loss, logs, inputs, output
 
     def _compute_loss_and_logs(self, batch: Mapping[str, torch.Tensor]) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:

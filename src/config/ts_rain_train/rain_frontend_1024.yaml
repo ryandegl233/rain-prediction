@@ -68,7 +68,7 @@ dataset:
     min_value: 0.02
     mode: future_any
   augmentation:
-    train_enabled: true
+    train_enabled: false
     val_enabled: false
     random_crop_prob: 0.5
     random_crop_min_scale: 0.8
@@ -83,6 +83,7 @@ dataset:
     n_past: ${dataset.n_past}
     n_futures: ${dataset.n_futures}
     img_resize: ${dataset.img_size}
+    target_img_resize: 1024
     stack_data: true
     index_file_name: null
     modality_zero_centering: ${dataset.modality_zero_centering}
@@ -126,6 +127,7 @@ dataset:
     n_past: ${dataset.n_past}
     n_futures: ${dataset.n_futures}
     img_resize: ${dataset.img_size}
+    target_img_resize: 1024
     stack_data: true
     index_file_name: null
     modality_zero_centering: ${dataset.modality_zero_centering}
@@ -169,8 +171,11 @@ frontend:
     radar_channels: 1
     satellite_channels: 10
     rain_channels: 1
-    feature_channels: 8
-    shared_depth: 1
+    feature_channels: 32
+    growth_channels: 16
+    dense_blocks: 4
+    dense_layers: 3
+    shared_depth: 2
     scale_factor: 1.0
     output_size: [1024, 1024]
     residual_scale: 0.1
@@ -178,15 +183,13 @@ frontend:
     dropout: 0.0
     clamp_rain_min: 0.0
     temporal_chunk_size: 1
+    upsample_stages: 2
 
 loss:
-  spectral_weight: 1.0
-  spatial_weight: 0.1
+  rain_hr_weight: 1.0
+  rain_detail_weight: 0.25
+  degradation_weight: 0.1
   residual_weight: 1.0e-4
-  guide_weights:
-    radar: 1.0
-    satellite: 1.0
-    rain: 1.0
 
 metrics:
   data_range: 1.0

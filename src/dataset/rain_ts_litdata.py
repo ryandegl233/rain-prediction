@@ -209,6 +209,7 @@ class RainTimeSeriesDataset(IndexedCombinedStreamingDataset):
         n_past=2,
         n_futures=2,
         img_resize: int = 384,
+        target_img_resize: int | None = None,
         stack_data=True,
         is_cycled=False,
         ##### dataset configs #####
@@ -290,6 +291,8 @@ class RainTimeSeriesDataset(IndexedCombinedStreamingDataset):
         self.stack_data = stack_data  # see docstring
         if bool(aug_enabled) and (not bool(self.stack_data)):
             raise ValueError("dataset augmentation requires stack_data=True.")
+        if target_img_resize is not None and bool(aug_enabled):
+            raise ValueError("target_img_resize currently requires aug_enabled=False to keep LR/HR targets aligned.")
 
         self.augmentor = RainTimeSeriesAugmentor(
             enabled=bool(aug_enabled),
@@ -322,8 +325,16 @@ class RainTimeSeriesDataset(IndexedCombinedStreamingDataset):
         self._iter_epoch = 0
         self.iter_wrapper = WindowIndexIterWrapper(mode=self.iter_index_mode, seed=self.iter_index_seed)
 
-        # Initialize resizer
+        # Initialize resizers
+        self.img_resize = int(img_resize)
+        self.target_img_resize = None if target_img_resize is None else int(target_img_resize)
+        self._warned_low_resolution_hr_target = False
         self.resizer = Resize((img_resize, img_resize), align_corners=False, keepdim=True)
+        self.target_resizer = (
+            Resize((int(target_img_resize), int(target_img_resize)), align_corners=False, keepdim=True)
+            if target_img_resize is not None
+            else None
+        )
 
         # contruct consecutive time groups
         self.times_pairs = []
@@ -541,15 +552,27 @@ class RainTimeSeriesDataset(IndexedCombinedStreamingDataset):
             f"Expected field '{field_name}' at sample index={index} to be HW/CHW tensor, got shape={tuple(value.shape)}"
         )
 
-    def _get_sample(self, index):
-        # sample = self.dataset[index]  # single process here
-        sample = super().__getitem__(index)
-
+    def _prepare_sample_resolutions(
+        self, sample: dict, *, index: int
+    ) -> tuple[tuple[torch.Tensor, torch.Tensor, torch.Tensor], tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None]:
         radar = self._to_float_tensor(sample["radar"], field_name="radar", index=index)
         sat = self._to_float_tensor(sample["satellite"], field_name="satellite", index=index)
         rain_int = self._to_float_tensor(sample["rain_interpolated"], field_name="rain_interpolated", index=index)
+        if (
+            self.target_img_resize is not None
+            and not self._warned_low_resolution_hr_target
+            and min(int(rain_int.shape[-2]), int(rain_int.shape[-1])) <= self.img_resize
+        ):
+            logger.warning(
+                "target_img_resize is enabled, but raw rain_interpolated is not larger than img_resize; "
+                "HR target may not contain more spatial information than the LR input."
+            )
+            self._warned_low_resolution_hr_target = True
 
-        # Apply resizing
+        radar_hr = self.target_resizer(radar) if self.target_resizer is not None else None
+        sat_hr = self.target_resizer(sat) if self.target_resizer is not None else None
+        rain_int_hr = self.target_resizer(rain_int) if self.target_resizer is not None else None
+
         radar = self.resizer(radar)
         sat = self.resizer(sat)
         rain_int = self.resizer(rain_int)
@@ -557,6 +580,10 @@ class RainTimeSeriesDataset(IndexedCombinedStreamingDataset):
         radar = self._ensure_chw(radar, field_name="radar", index=index)
         sat = self._ensure_chw(sat, field_name="satellite", index=index)
         rain_int = self._ensure_chw(rain_int, field_name="rain_interpolated", index=index)
+        if radar_hr is not None and sat_hr is not None and rain_int_hr is not None:
+            radar_hr = self._ensure_chw(radar_hr, field_name="radar_hr", index=index)
+            sat_hr = self._ensure_chw(sat_hr, field_name="satellite_hr", index=index)
+            rain_int_hr = self._ensure_chw(rain_int_hr, field_name="rain_interpolated_hr", index=index)
 
         radar = self._sanitize_and_clip(
             radar,
@@ -576,12 +603,34 @@ class RainTimeSeriesDataset(IndexedCombinedStreamingDataset):
             max_value=self.rain_clip_max,
             fill_value=0.0,
         )
+        if radar_hr is not None and sat_hr is not None and rain_int_hr is not None:
+            radar_hr = self._sanitize_and_clip(
+                radar_hr,
+                min_value=self.radar_clip_min,
+                max_value=self.radar_clip_max,
+                fill_value=0.0,
+            )
+            sat_hr = self._sanitize_and_clip(
+                sat_hr,
+                min_value=self.satellite_clip_min,
+                max_value=self.satellite_clip_max,
+                fill_value=0.0,
+            )
+            rain_int_hr = self._sanitize_and_clip(
+                rain_int_hr,
+                min_value=self.rain_clip_min,
+                max_value=self.rain_clip_max,
+                fill_value=0.0,
+            )
 
         # norm
         _sat_max_value = 300
         _radar_max_value = 60
         sat = sat / _sat_max_value
         radar = radar / _radar_max_value
+        if radar_hr is not None and sat_hr is not None:
+            radar_hr = radar_hr / _radar_max_value
+            sat_hr = sat_hr / _sat_max_value
         if self.modality_zero_centering:
             sat = sat * 2.0 - 1.0
             radar = radar * 2.0 - 1.0
@@ -590,8 +639,27 @@ class RainTimeSeriesDataset(IndexedCombinedStreamingDataset):
                 mean=float(self.rain_norm_mean),
                 std=float(self.rain_norm_std),
             )
+            if radar_hr is not None and sat_hr is not None and rain_int_hr is not None:
+                sat_hr = sat_hr * 2.0 - 1.0
+                radar_hr = radar_hr * 2.0 - 1.0
+                rain_int_hr = normalize_rain_linear(
+                    rain_int_hr,
+                    mean=float(self.rain_norm_mean),
+                    std=float(self.rain_norm_std),
+                )
 
-        return radar, sat, rain_int
+        low = (radar, sat, rain_int)
+        high = (radar_hr, sat_hr, rain_int_hr) if radar_hr is not None and sat_hr is not None and rain_int_hr is not None else None
+        return low, high
+
+    def _get_sample(self, index):
+        sample = super().__getitem__(index)
+        low, _high = self._prepare_sample_resolutions(sample, index=index)
+        return low
+
+    def _get_sample_with_target(self, index):
+        sample = super().__getitem__(index)
+        return self._prepare_sample_resolutions(sample, index=index)
 
     def _sanitize_and_clip(
         self,
@@ -698,31 +766,57 @@ class RainTimeSeriesDataset(IndexedCombinedStreamingDataset):
         radar_past = []
         sat_past = []
         rain_int_past = []
+        radar_past_hr = []
+        sat_past_hr = []
+        rain_int_past_hr = []
         for _ip in ind_past:
-            radar, sat, rain_int = self._get_sample(_ip)
+            low, high = self._get_sample_with_target(_ip)
+            radar, sat, rain_int = low
             radar_past.append(radar)
             sat_past.append(sat)
             rain_int_past.append(rain_int)
+            if high is not None:
+                radar_hr, sat_hr, rain_int_hr = high
+                radar_past_hr.append(radar_hr)
+                sat_past_hr.append(sat_hr)
+                rain_int_past_hr.append(rain_int_hr)
 
         # data future
         radar_future = []
         sat_future = []
         rain_int_future = []
+        radar_future_hr = []
+        sat_future_hr = []
+        rain_int_future_hr = []
         for _if in ind_future:
-            radar, sat, rain_int = self._get_sample(_if)
+            low, high = self._get_sample_with_target(_if)
+            radar, sat, rain_int = low
             radar_future.append(radar)
             sat_future.append(sat)
             rain_int_future.append(rain_int)
+            if high is not None:
+                radar_hr, sat_hr, rain_int_hr = high
+                radar_future_hr.append(radar_hr)
+                sat_future_hr.append(sat_hr)
+                rain_int_future_hr.append(rain_int_hr)
 
         # stack
         if self.stack_data:
             radar_past = torch.stack(radar_past, dim=1)
             sat_past = torch.stack(sat_past, dim=1)
             rain_int_past = torch.stack(rain_int_past, dim=1)
+            if len(radar_past_hr) > 0:
+                radar_past_hr = torch.stack(radar_past_hr, dim=1)
+                sat_past_hr = torch.stack(sat_past_hr, dim=1)
+                rain_int_past_hr = torch.stack(rain_int_past_hr, dim=1)
 
             radar_future = torch.stack(radar_future, dim=1)
             sat_future = torch.stack(sat_future, dim=1)
             rain_int_future = torch.stack(rain_int_future, dim=1)
+            if len(radar_future_hr) > 0:
+                radar_future_hr = torch.stack(radar_future_hr, dim=1)
+                sat_future_hr = torch.stack(sat_future_hr, dim=1)
+                rain_int_future_hr = torch.stack(rain_int_future_hr, dim=1)
 
         # time
         time_past = torch.tensor([self._date_time_to_float(t) for t in times[0]])
@@ -757,7 +851,7 @@ class RainTimeSeriesDataset(IndexedCombinedStreamingDataset):
             aug_crop_box_norm_xyxy = torch.tensor([0.0, 0.0, 1.0, 1.0], dtype=torch.float32)
             aug_time_reversed = torch.tensor(0, dtype=torch.int64)
 
-        return edict(
+        out = edict(
             {
                 "radar_past": radar_past,  # (bs, c, n_past, h, w)
                 "radar_future": radar_future,  # (bs, c, n_future, h, w)
@@ -772,6 +866,14 @@ class RainTimeSeriesDataset(IndexedCombinedStreamingDataset):
                 "aug_time_reversed": aug_time_reversed,
             }
         )
+        if len(radar_past_hr) > 0:
+            out["radar_past_hr"] = radar_past_hr
+            out["satellite_past_hr"] = sat_past_hr
+            out["rain_past_hr"] = rain_int_past_hr
+            out["radar_future_hr"] = radar_future_hr
+            out["satellite_future_hr"] = sat_future_hr
+            out["rain_future_hr"] = rain_int_future_hr
+        return out
 
     def __iter__(self):
         """
@@ -805,6 +907,7 @@ def get_litdata_rain_ts_dataloader(
     n_past: int = 5,
     n_futures: int = 5,
     img_resize: int = 256,
+    target_img_resize: int | None = None,
     stack_data: bool = True,
     index_file_name: str | None = None,
     modality_zero_centering: bool = False,
@@ -854,6 +957,7 @@ def get_litdata_rain_ts_dataloader(
         n_past=n_past,
         n_futures=n_futures,
         img_resize=img_resize,
+        target_img_resize=target_img_resize,
         stack_data=stack_data,
         is_cycled=is_cycled,
         index_file_name=index_file_name,

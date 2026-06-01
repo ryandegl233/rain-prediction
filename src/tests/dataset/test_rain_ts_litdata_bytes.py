@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 import tifffile
 import torch
+from kornia.augmentation import Resize
 
 from src.dataset.rain_ts_litdata import (
     RainTimeSeriesDataset,
@@ -67,3 +68,37 @@ def test_rain_linear_norm_requires_positive_std() -> None:
         normalize_rain_linear(rain, mean=0.0, std=0.0)
     with pytest.raises(ValueError, match="std must be > 0"):
         denormalize_rain_linear(rain, mean=0.0, std=-1.0)
+
+
+def test_prepare_sample_resolutions_returns_low_and_hr_targets() -> None:
+    dataset = object.__new__(RainTimeSeriesDataset)
+    dataset.resizer = Resize((8, 8), align_corners=False, keepdim=True)
+    dataset.target_resizer = Resize((16, 16), align_corners=False, keepdim=True)
+    dataset.img_resize = 8
+    dataset.target_img_resize = 16
+    dataset._warned_low_resolution_hr_target = False
+    dataset.modality_zero_centering = False
+    dataset.rain_norm_mean = None
+    dataset.rain_norm_std = None
+    dataset.radar_clip_min = 0.0
+    dataset.radar_clip_max = 60.0
+    dataset.satellite_clip_min = 0.0
+    dataset.satellite_clip_max = 300.0
+    dataset.rain_clip_min = 0.0
+    dataset.rain_clip_max = None
+    sample = {
+        "radar": torch.rand(16, 16) * 60.0,
+        "satellite": torch.rand(10, 16, 16) * 300.0,
+        "rain_interpolated": torch.rand(16, 16),
+    }
+
+    low, hr = dataset._prepare_sample_resolutions(sample, index=3)
+
+    radar, satellite, rain = low
+    radar_hr, satellite_hr, rain_hr = hr
+    assert radar.shape == (1, 8, 8)
+    assert satellite.shape == (10, 8, 8)
+    assert rain.shape == (1, 8, 8)
+    assert radar_hr.shape == (1, 16, 16)
+    assert satellite_hr.shape == (10, 16, 16)
+    assert rain_hr.shape == (1, 16, 16)

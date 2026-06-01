@@ -36,6 +36,9 @@ def _make_trainer(tmp_path) -> SpatialFrontendTrainer:
     trainer.accelerator = DummyAccelerator()
     trainer.frontend = MultimodalSpatialEnhancementFrontend(
         feature_channels=4,
+        growth_channels=2,
+        dense_blocks=1,
+        dense_layers=2,
         shared_depth=1,
         output_size=(16, 16),
     )
@@ -56,10 +59,10 @@ def _make_trainer(tmp_path) -> SpatialFrontendTrainer:
     )
     trainer.loss_cfg = OmegaConf.create(
         {
-            "spectral_weight": 1.0,
-            "spatial_weight": 0.1,
+            "rain_hr_weight": 1.0,
+            "rain_detail_weight": 0.25,
+            "degradation_weight": 0.1,
             "residual_weight": 1.0e-4,
-            "guide_weights": {"radar": 1.0, "satellite": 1.0, "rain": 1.0},
         }
     )
     trainer.metric_cfg = OmegaConf.create({"data_range": 1.0})
@@ -74,6 +77,9 @@ def _make_batch() -> dict[str, torch.Tensor]:
         "radar_past": torch.rand(1, 1, 1, 8, 8),
         "satellite_past": torch.rand(1, 10, 1, 8, 8),
         "rain_past": torch.rand(1, 1, 1, 8, 8),
+        "radar_past_hr": torch.rand(1, 1, 1, 16, 16),
+        "satellite_past_hr": torch.rand(1, 10, 1, 16, 16),
+        "rain_past_hr": torch.rand(1, 1, 1, 16, 16),
     }
 
 
@@ -85,8 +91,10 @@ def test_frontend_trainer_one_step_smoke(tmp_path) -> None:
     assert did_step
     assert trainer.global_step == 1
     assert torch.isfinite(logs["loss/frontend_total"])
-    assert torch.isfinite(logs["frontend/degraded_psnr"])
-    assert torch.isfinite(logs["frontend/degraded_ssim"])
+    assert torch.isfinite(logs["frontend/rain_enhanced_hr_psnr"])
+    assert torch.isfinite(logs["frontend/rain_base_hr_psnr"])
+    assert torch.isfinite(logs["frontend/rain_psnr_gain"])
+    assert torch.isfinite(logs["frontend/rain_gate_mean"])
 
 
 def test_frontend_checkpoint_contains_required_state(tmp_path) -> None:
@@ -102,6 +110,9 @@ def test_frontend_checkpoint_contains_required_state(tmp_path) -> None:
 
     reloaded = MultimodalSpatialEnhancementFrontend(
         feature_channels=4,
+        growth_channels=2,
+        dense_blocks=1,
+        dense_layers=2,
         shared_depth=1,
         output_size=(16, 16),
     )

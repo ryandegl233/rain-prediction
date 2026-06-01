@@ -89,6 +89,51 @@ class ModalityStem2D(nn.Module):
         return self.net(x)
 
 
+class ResidualDenseBlock2D(nn.Module):
+    def __init__(self, channels: int, growth_channels: int, layers: int, residual_scale: float = 0.2) -> None:
+        super().__init__()
+        self.residual_scale = float(residual_scale)
+        dense_layers: list[nn.Module] = []
+        in_channels = int(channels)
+        for _ in range(int(layers)):
+            dense_layers.append(
+                nn.Sequential(
+                    nn.Conv2d(in_channels, growth_channels, kernel_size=3, padding=1),
+                    nn.SiLU(),
+                )
+            )
+            in_channels += int(growth_channels)
+        self.layers = nn.ModuleList(dense_layers)
+        self.fuse = nn.Conv2d(in_channels, channels, kernel_size=1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        features = [x]
+        for layer in self.layers:
+            features.append(layer(torch.cat(features, dim=1)))
+        return x + self.residual_scale * self.fuse(torch.cat(features, dim=1))
+
+
+class PixelShuffleUpsample2D(nn.Module):
+    def __init__(self, channels: int, stages: int = 2) -> None:
+        super().__init__()
+        blocks: list[nn.Module] = []
+        for _ in range(int(stages)):
+            blocks.extend(
+                [
+                    nn.Conv2d(channels, channels * 4, kernel_size=3, padding=1),
+                    nn.PixelShuffle(2),
+                    nn.SiLU(),
+                ]
+            )
+        self.net = nn.Sequential(*blocks)
+
+    def forward(self, x: torch.Tensor, *, target_size: tuple[int, int] | None) -> torch.Tensor:
+        x = self.net(x)
+        if target_size is not None and (int(x.shape[-2]), int(x.shape[-1])) != target_size:
+            x = F.interpolate(x, size=target_size, mode="bilinear", align_corners=False)
+        return x
+
+
 @dataclass(frozen=True)
 class SpatialFrontendOutput:
     radar: torch.Tensor
@@ -127,6 +172,9 @@ class MultimodalSpatialEnhancementFrontend(nn.Module):
         satellite_channels: int = 10,
         rain_channels: int = 1,
         feature_channels: int = 32,
+        growth_channels: int = 16,
+        dense_blocks: int = 4,
+        dense_layers: int = 3,
         shared_depth: int = 4,
         scale_factor: float = 1.0,
         output_size: tuple[int, int] | None = None,
@@ -135,6 +183,7 @@ class MultimodalSpatialEnhancementFrontend(nn.Module):
         dropout: float = 0.0,
         clamp_rain_min: float | None = None,
         temporal_chunk_size: int | None = None,
+        upsample_stages: int = 2,
     ) -> None:
         super().__init__()
         if scale_factor <= 0:
@@ -143,6 +192,12 @@ class MultimodalSpatialEnhancementFrontend(nn.Module):
             raise ValueError(f"output_size must be positive (H, W), got {output_size}")
         if feature_channels <= 0:
             raise ValueError(f"feature_channels must be > 0, got {feature_channels}")
+        if growth_channels <= 0:
+            raise ValueError(f"growth_channels must be > 0, got {growth_channels}")
+        if dense_blocks <= 0:
+            raise ValueError(f"dense_blocks must be > 0, got {dense_blocks}")
+        if dense_layers <= 0:
+            raise ValueError(f"dense_layers must be > 0, got {dense_layers}")
         if temporal_chunk_size is not None and temporal_chunk_size <= 0:
             raise ValueError(f"temporal_chunk_size must be > 0 or None, got {temporal_chunk_size}")
 
@@ -160,21 +215,28 @@ class MultimodalSpatialEnhancementFrontend(nn.Module):
         self.satellite_stem = ModalityStem2D(self.satellite_channels, feature_channels)
         self.rain_stem = ModalityStem2D(self.rain_channels, feature_channels)
 
-        shared_channels = feature_channels * 3
-        blocks: list[nn.Module] = [nn.Conv2d(shared_channels, shared_channels, kernel_size=3, padding=1)]
-        for _ in range(int(shared_depth)):
-            blocks.append(ResidualBlock2D(shared_channels, dropout=dropout))
-        self.shared_trunk = nn.Sequential(*blocks)
+        fused_channels = feature_channels * 3
+        self.guidance_in = nn.Conv2d(fused_channels, feature_channels, kernel_size=3, padding=1)
+        self.guidance_trunk = nn.Sequential(
+            *[
+                ResidualDenseBlock2D(feature_channels, growth_channels, dense_layers)
+                for _ in range(max(1, int(shared_depth)))
+            ]
+        )
+        self.rain_trunk = nn.Sequential(
+            *[
+                ResidualDenseBlock2D(feature_channels, growth_channels, dense_layers)
+                for _ in range(int(dense_blocks))
+            ]
+        )
+        self.rain_film = nn.Conv2d(feature_channels, feature_channels * 2, kernel_size=3, padding=1)
+        self.detail_upsampler = PixelShuffleUpsample2D(feature_channels, stages=upsample_stages)
+        self.guidance_upsampler = PixelShuffleUpsample2D(feature_channels, stages=upsample_stages)
 
-        rain_blocks: list[nn.Module] = [nn.Conv2d(feature_channels, feature_channels, kernel_size=3, padding=1)]
-        for _ in range(int(shared_depth)):
-            rain_blocks.append(ResidualBlock2D(feature_channels, dropout=dropout))
-        self.rain_trunk = nn.Sequential(*rain_blocks)
-
-        self.radar_head = nn.Conv2d(shared_channels, self.radar_channels, kernel_size=3, padding=1)
-        self.satellite_head = nn.Conv2d(shared_channels, self.satellite_channels, kernel_size=3, padding=1)
+        self.radar_head = nn.Conv2d(feature_channels, self.radar_channels, kernel_size=3, padding=1)
+        self.satellite_head = nn.Conv2d(feature_channels, self.satellite_channels, kernel_size=3, padding=1)
         self.rain_head = nn.Conv2d(feature_channels, self.rain_channels, kernel_size=3, padding=1)
-        self.rain_gate_head = nn.Conv2d(shared_channels, self.rain_channels, kernel_size=3, padding=1)
+        self.rain_gate_head = nn.Conv2d(feature_channels, self.rain_channels, kernel_size=3, padding=1)
 
         for head in (self.radar_head, self.satellite_head, self.rain_head):
             nn.init.zeros_(head.weight)
@@ -203,19 +265,22 @@ class MultimodalSpatialEnhancementFrontend(nn.Module):
         *,
         target_size: tuple[int, int] | None,
     ) -> SpatialFrontendOutput:
+        radar = _as_bcthw(radar, name="radar")
+        satellite = _as_bcthw(satellite, name="satellite")
+        rain = _as_bcthw(rain, name="rain")
         radar_base = self._resize_input(radar, target_size=target_size)
         satellite_base = self._resize_input(satellite, target_size=target_size)
         rain_base = self._resize_input(rain, target_size=target_size)
 
-        radar_flat, shape = _flatten_time(radar_base)
-        satellite_flat, _ = _flatten_time(satellite_base)
-        rain_flat, _ = _flatten_time(rain_base)
+        radar_flat, shape = _flatten_time(radar)
+        satellite_flat, _ = _flatten_time(satellite)
+        rain_flat, _ = _flatten_time(rain)
 
         radar_features = self.radar_stem(radar_flat)
         satellite_features = self.satellite_stem(satellite_flat)
         rain_features = self.rain_stem(rain_flat)
 
-        features = torch.cat(
+        fused_features = torch.cat(
             [
                 radar_features,
                 satellite_features,
@@ -223,12 +288,17 @@ class MultimodalSpatialEnhancementFrontend(nn.Module):
             ],
             dim=1,
         )
-        shared = self.shared_trunk(features)
-        rain_shared = self.rain_trunk(rain_features)
-        radar_residual = _unflatten_time(self.radar_head(shared), shape)
-        satellite_residual = _unflatten_time(self.satellite_head(shared), shape)
-        rain_gate_flat = torch.sigmoid(self.rain_gate_head(shared))
-        rain_residual_flat = self.rain_head(rain_shared) * rain_gate_flat
+        guidance = self.guidance_trunk(self.guidance_in(fused_features))
+        rain_detail = self.rain_trunk(rain_features)
+        gamma, beta = self.rain_film(guidance).chunk(2, dim=1)
+        rain_detail = rain_detail * (1.0 + 0.1 * torch.tanh(gamma)) + 0.1 * torch.tanh(beta)
+
+        upsampled_guidance = self.guidance_upsampler(guidance, target_size=target_size)
+        upsampled_rain_detail = self.detail_upsampler(rain_detail, target_size=target_size)
+        radar_residual = _unflatten_time(self.radar_head(upsampled_guidance), shape)
+        satellite_residual = _unflatten_time(self.satellite_head(upsampled_guidance), shape)
+        rain_gate_flat = torch.sigmoid(self.rain_gate_head(upsampled_guidance))
+        rain_residual_flat = self.rain_head(upsampled_rain_detail) * rain_gate_flat
         rain_residual = _unflatten_time(rain_residual_flat, shape)
         rain_gate = _unflatten_time(rain_gate_flat, shape)
 
@@ -371,6 +441,46 @@ def residual_energy_loss(residuals: Mapping[str, torch.Tensor]) -> torch.Tensor:
     if not values:
         raise ValueError("residuals must not be empty")
     return torch.stack(values).mean()
+
+
+def charbonnier_loss(pred: torch.Tensor, target: torch.Tensor, eps: float = 1.0e-3) -> torch.Tensor:
+    return torch.sqrt((pred - target).pow(2) + float(eps) ** 2).mean()
+
+
+def frontend_supervised_loss(
+    output: SpatialFrontendOutput,
+    low_inputs: Mapping[str, torch.Tensor],
+    high_targets: Mapping[str, torch.Tensor],
+    *,
+    rain_hr_weight: float = 1.0,
+    rain_detail_weight: float = 0.25,
+    degradation_weight: float = 0.1,
+    residual_weight: float = 1.0e-4,
+) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+    rain_target = _as_bcthw(high_targets["rain"], name="rain_target")
+    if output.rain.shape != rain_target.shape:
+        raise ValueError(f"rain target shape mismatch, output={tuple(output.rain.shape)}, target={tuple(rain_target.shape)}")
+
+    rain_hr = charbonnier_loss(output.rain, rain_target)
+    target_detail = rain_target - output.rain_base
+    pred_detail = output.rain - output.rain_base
+    rain_detail = F.l1_loss(pred_detail, target_detail)
+    degradation = spectral_degradation_loss(output.rain, low_inputs["rain"])
+    residual = residual_energy_loss({"rain": output.rain_residual})
+    total = (
+        float(rain_hr_weight) * rain_hr
+        + float(rain_detail_weight) * rain_detail
+        + float(degradation_weight) * degradation
+        + float(residual_weight) * residual
+    )
+    logs = {
+        "loss/frontend_total": total.detach(),
+        "loss/rain_hr_l1": rain_hr.detach(),
+        "loss/rain_detail_l1": rain_detail.detach(),
+        "loss/degradation_consistency": degradation.detach(),
+        "loss/frontend_residual": residual.detach(),
+    }
+    return total, logs
 
 
 def frontend_unsupervised_loss(
