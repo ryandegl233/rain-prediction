@@ -165,9 +165,14 @@ class MultimodalSpatialEnhancementFrontend(nn.Module):
             blocks.append(ResidualBlock2D(shared_channels, dropout=dropout))
         self.shared_trunk = nn.Sequential(*blocks)
 
+        rain_blocks: list[nn.Module] = [nn.Conv2d(feature_channels, feature_channels, kernel_size=3, padding=1)]
+        for _ in range(int(shared_depth)):
+            rain_blocks.append(ResidualBlock2D(feature_channels, dropout=dropout))
+        self.rain_trunk = nn.Sequential(*rain_blocks)
+
         self.radar_head = nn.Conv2d(shared_channels, self.radar_channels, kernel_size=3, padding=1)
         self.satellite_head = nn.Conv2d(shared_channels, self.satellite_channels, kernel_size=3, padding=1)
-        self.rain_head = nn.Conv2d(shared_channels, self.rain_channels, kernel_size=3, padding=1)
+        self.rain_head = nn.Conv2d(feature_channels, self.rain_channels, kernel_size=3, padding=1)
 
         for head in (self.radar_head, self.satellite_head, self.rain_head):
             nn.init.zeros_(head.weight)
@@ -202,18 +207,23 @@ class MultimodalSpatialEnhancementFrontend(nn.Module):
         satellite_flat, _ = _flatten_time(satellite_base)
         rain_flat, _ = _flatten_time(rain_base)
 
+        radar_features = self.radar_stem(radar_flat)
+        satellite_features = self.satellite_stem(satellite_flat)
+        rain_features = self.rain_stem(rain_flat)
+
         features = torch.cat(
             [
-                self.radar_stem(radar_flat),
-                self.satellite_stem(satellite_flat),
-                self.rain_stem(rain_flat),
+                radar_features,
+                satellite_features,
+                rain_features,
             ],
             dim=1,
         )
         shared = self.shared_trunk(features)
+        rain_shared = self.rain_trunk(rain_features)
         radar_residual = _unflatten_time(self.radar_head(shared), shape)
         satellite_residual = _unflatten_time(self.satellite_head(shared), shape)
-        rain_residual = _unflatten_time(self.rain_head(shared), shape)
+        rain_residual = _unflatten_time(self.rain_head(rain_shared), shape)
 
         radar_out = radar_base + self.residual_scale * radar_residual
         satellite_out = satellite_base + self.residual_scale * satellite_residual
@@ -368,11 +378,11 @@ def frontend_unsupervised_loss(
         + spectral_degradation_loss(output.satellite, low_inputs["satellite"])
         + spectral_degradation_loss(output.rain, low_inputs["rain"])
     ) / 3.0
-    guide = build_spatial_guide(output.radar_base, output.satellite_base, output.rain_base, weights=guide_weights)
+    shared_guide = build_spatial_guide(output.radar_base, output.satellite_base, output.rain_base, weights=guide_weights)
     spatial = (
-        spatial_gradient_loss(output.radar, guide)
-        + spatial_gradient_loss(output.satellite, guide)
-        + spatial_gradient_loss(output.rain, guide)
+        spatial_gradient_loss(output.radar, shared_guide)
+        + spatial_gradient_loss(output.satellite, shared_guide)
+        + spatial_gradient_loss(output.rain, output.rain_base)
     ) / 3.0
     residual = residual_energy_loss(output.residuals())
     total = float(spectral_weight) * spectral + float(spatial_weight) * spatial + float(residual_weight) * residual

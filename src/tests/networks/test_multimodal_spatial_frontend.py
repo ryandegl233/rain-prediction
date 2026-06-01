@@ -2,10 +2,13 @@ import torch
 
 from src.networks.spatial_rain_upsample.upsampler import (
     MultimodalSpatialEnhancementFrontend,
+    SpatialFrontendOutput,
+    build_spatial_guide,
     frontend_unsupervised_loss,
     psnr,
     resize_bcthw,
     spectral_degradation_loss,
+    spatial_gradient_loss,
     ssim_global,
 )
 
@@ -96,6 +99,28 @@ def test_zero_initialized_heads_match_interpolation_basis() -> None:
     assert torch.allclose(out.rain, resize_bcthw(rain, size=(20, 20)))
 
 
+def test_rain_output_does_not_depend_on_radar_or_satellite_features() -> None:
+    torch.manual_seed(7)
+    _radar, _satellite, rain = _make_inputs(batch=1, frames=1, size=8)
+    radar_a = torch.rand(1, 1, 1, 8, 8)
+    radar_b = torch.rand(1, 1, 1, 8, 8)
+    satellite_a = torch.rand(1, 10, 1, 8, 8)
+    satellite_b = torch.rand(1, 10, 1, 8, 8)
+    model = MultimodalSpatialEnhancementFrontend(
+        feature_channels=4,
+        shared_depth=0,
+        output_size=(16, 16),
+        temporal_chunk_size=1,
+    )
+    with torch.no_grad():
+        model.rain_head.weight.fill_(0.1)
+
+    out_a = model(radar=radar_a, satellite=satellite_a, rain=rain)
+    out_b = model(radar=radar_b, satellite=satellite_b, rain=rain)
+
+    assert torch.allclose(out_a.rain, out_b.rain, atol=1.0e-6)
+
+
 def test_chunked_zero_initialized_heads_match_interpolation_basis() -> None:
     radar, satellite, rain = _make_inputs(batch=1, frames=4, size=12)
     model = MultimodalSpatialEnhancementFrontend(
@@ -140,6 +165,41 @@ def test_frontend_unsupervised_loss_backward_runs() -> None:
         "loss/frontend_residual",
     }
     assert any(param.grad is not None for param in model.parameters() if param.requires_grad)
+
+
+def test_rain_spatial_loss_uses_rain_only_guide() -> None:
+    radar_base = torch.rand(1, 1, 1, 8, 8)
+    satellite_base = torch.rand(1, 10, 1, 8, 8)
+    rain_base = torch.rand(1, 1, 1, 8, 8)
+    residual = torch.zeros_like(rain_base)
+    output = SpatialFrontendOutput(
+        radar=radar_base,
+        satellite=satellite_base,
+        rain=rain_base,
+        radar_base=radar_base,
+        satellite_base=satellite_base,
+        rain_base=rain_base,
+        radar_residual=residual,
+        satellite_residual=torch.zeros_like(satellite_base),
+        rain_residual=residual,
+    )
+
+    loss, _logs = frontend_unsupervised_loss(
+        output,
+        {"radar": radar_base, "satellite": satellite_base, "rain": rain_base},
+        spectral_weight=0.0,
+        spatial_weight=1.0,
+        residual_weight=0.0,
+        guide_weights={"radar": 1.0, "satellite": 1.0, "rain": 1.0},
+    )
+    shared_guide = build_spatial_guide(radar_base, satellite_base, rain_base)
+    expected = (
+        spatial_gradient_loss(output.radar, shared_guide)
+        + spatial_gradient_loss(output.satellite, shared_guide)
+        + spatial_gradient_loss(output.rain, rain_base)
+    ) / 3.0
+
+    assert torch.allclose(loss, expected)
 
 
 def test_degradation_loss_downsamples_to_low_reference_shape() -> None:
