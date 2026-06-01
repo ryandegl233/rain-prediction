@@ -23,6 +23,7 @@ def test_frontend_outputs_requested_spatial_size() -> None:
         feature_channels=8,
         shared_depth=1,
         scale_factor=2,
+        temporal_chunk_size=1,
     )
 
     out = model(radar=radar, satellite=satellite, rain=rain)
@@ -32,12 +33,43 @@ def test_frontend_outputs_requested_spatial_size() -> None:
     assert out.rain.shape == (2, 1, 3, 32, 32)
 
 
+def test_temporal_chunk_size_one_matches_full_time_output_shapes() -> None:
+    radar, satellite, rain = _make_inputs(batch=1, frames=3, size=10)
+    base_model = MultimodalSpatialEnhancementFrontend(
+        feature_channels=4,
+        shared_depth=1,
+        output_size=(18, 18),
+        temporal_chunk_size=None,
+    )
+    chunked_model = MultimodalSpatialEnhancementFrontend(
+        feature_channels=4,
+        shared_depth=1,
+        output_size=(18, 18),
+        temporal_chunk_size=1,
+    )
+    chunked_model.load_state_dict(base_model.state_dict())
+    base_model.eval()
+    chunked_model.eval()
+
+    with torch.no_grad():
+        full = base_model(radar=radar, satellite=satellite, rain=rain)
+        chunked = chunked_model(radar=radar, satellite=satellite, rain=rain)
+
+    assert chunked.radar.shape == full.radar.shape == (1, 1, 3, 18, 18)
+    assert chunked.satellite.shape == full.satellite.shape == (1, 10, 3, 18, 18)
+    assert chunked.rain.shape == full.rain.shape == (1, 1, 3, 18, 18)
+    assert torch.allclose(chunked.radar, full.radar)
+    assert torch.allclose(chunked.satellite, full.satellite)
+    assert torch.allclose(chunked.rain, full.rain)
+
+
 def test_frontend_v1_outputs_1024_from_448() -> None:
     radar, satellite, rain = _make_inputs(batch=1, frames=1, size=448)
     model = MultimodalSpatialEnhancementFrontend(
         feature_channels=1,
         shared_depth=0,
         output_size=(1024, 1024),
+        temporal_chunk_size=1,
     )
 
     with torch.no_grad():
@@ -64,12 +96,30 @@ def test_zero_initialized_heads_match_interpolation_basis() -> None:
     assert torch.allclose(out.rain, resize_bcthw(rain, size=(20, 20)))
 
 
+def test_chunked_zero_initialized_heads_match_interpolation_basis() -> None:
+    radar, satellite, rain = _make_inputs(batch=1, frames=4, size=12)
+    model = MultimodalSpatialEnhancementFrontend(
+        feature_channels=4,
+        shared_depth=1,
+        output_size=(20, 20),
+        residual_scale=0.25,
+        temporal_chunk_size=1,
+    )
+
+    out = model(radar=radar, satellite=satellite, rain=rain)
+
+    assert torch.allclose(out.radar, resize_bcthw(radar, size=(20, 20)))
+    assert torch.allclose(out.satellite, resize_bcthw(satellite, size=(20, 20)))
+    assert torch.allclose(out.rain, resize_bcthw(rain, size=(20, 20)))
+
+
 def test_frontend_unsupervised_loss_backward_runs() -> None:
     radar, satellite, rain = _make_inputs(size=16)
     model = MultimodalSpatialEnhancementFrontend(
         feature_channels=8,
         shared_depth=1,
         scale_factor=2,
+        temporal_chunk_size=1,
     )
 
     out = model(radar=radar, satellite=satellite, rain=rain)

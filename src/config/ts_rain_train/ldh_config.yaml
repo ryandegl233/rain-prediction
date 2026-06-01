@@ -1,0 +1,250 @@
+hydra:
+  output_subdir: hydra_config
+  run:
+    # 存放在全新的独立目录中，区分以前的自回归实验
+    dir: runs/time_conditioned_advection/${now:%Y-%m-%d}/${now:%H-%M-%S}_${train.log.run_comment}
+
+rain_prediction_model:
+  _target_: src.networks.time_conditioned_advection.TimeConditionedAdvectionTransformer
+  radar_out_channels: 1
+  satellite_out_channels: 10
+  rain_out_channels: 1
+  embed_dim: 256
+
+accelerator:
+  _target_: accelerate.Accelerator
+  mixed_precision: bf16
+  log_with: tensorboard
+  dataloader_config:
+    _target_: accelerate.utils.DataLoaderConfiguration
+    split_batches: false
+    even_batches: false
+    non_blocking: true
+    dispatch_batches: null
+    use_seedable_sampler: true
+    use_stateful_dataloader: false
+  project_config:
+    _target_: accelerate.utils.ProjectConfiguration
+    project_dir: runs/time_conditioned_advection/
+    logging_dir: runs/time_conditioned_advection/tensorboard
+    total_limit: 3
+    automatic_checkpoint_naming: true
+  gradient_accumulation_plugin:
+    _target_: accelerate.utils.GradientAccumulationPlugin
+    num_steps: 1
+    adjust_scheduler: true
+    sync_with_dataloader: false
+    sync_each_batch: false
+
+ema:
+  beta: 0.999
+  update_after_step: 1000
+  update_every: 1
+
+dataset:
+  n_past: 4
+  n_futures: 10           # 核心：配合 5 分钟间隔，DataLoader 会连续读取未来 30 分钟的数据（共 6 帧）
+  img_size: 512          # 512 高分辨率空间特征演化
+  time_interval: 30       # 核心：全新高频临近预报分辨率（5 分钟/帧）
+
+  train_inp_dirs:
+    - data2/litdata_train_2025/litdata_interval_30/202305
+    - data2/litdata_train_2025/litdata_interval_30/202306
+    - data2/litdata_train_2025/litdata_interval_30/202307
+    - data2/litdata_train_2025/litdata_interval_30/202308
+    - data2/litdata_train_2025/litdata_interval_30/202309
+    - data2/litdata_train_2025/litdata_interval_30/202506
+    - data2/litdata_train_2025/litdata_interval_30/202507
+  val_inp_dirs:
+    - data2/litdata_train_2025/litdata_interval_30/202508
+    - data2/litdata_train_2025/litdata_interval_30/202509
+
+  rain_norm:
+    mean: 0.004600618807
+    std: 0.047935366050
+  modality_zero_centering: false
+
+  value_clip:
+    enabled: true
+    radar_min: 0.0
+    radar_max: 60.0
+    satellite_min: 0.0
+    satellite_max: 300.0
+    rain_min: 0.0
+    rain_max: null
+
+  # 完美继承降水比例过滤器
+  rain_ratio_filter:
+    enabled: true
+    file_name: metadata_rain_ratio.parquet
+    column: rain_ratio_gt_0p02
+    min_value: 0.02
+    mode: future_any
+
+  # 完美继承数据增强模块
+  augmentation:
+    train_enabled: true
+    val_enabled: false
+    random_crop_prob: 0.5
+    random_crop_min_scale: 0.8
+    random_crop_max_scale: 1.0
+    random_crop_keep_size: true
+    temporal_reverse_prob: 0.1
+
+  train:
+    _target_: src.dataset.rain_ts_litdata.get_litdata_rain_ts_dataloader
+    inp_dirs: ${dataset.train_inp_dirs}
+    time_interval: ${dataset.time_interval}
+    n_past: ${dataset.n_past}
+    n_futures: ${dataset.n_futures}
+    img_resize: ${dataset.img_size}
+    stack_data: true
+    index_file_name: null
+    modality_zero_centering: ${dataset.modality_zero_centering}
+    rain_norm_mean: ${dataset.rain_norm.mean}
+    rain_norm_std: ${dataset.rain_norm.std}
+    clip_values: ${dataset.value_clip.enabled}
+    radar_clip_min: ${dataset.value_clip.radar_min}
+    radar_clip_max: ${dataset.value_clip.radar_max}
+    satellite_clip_min: ${dataset.value_clip.satellite_min}
+    satellite_clip_max: ${dataset.value_clip.satellite_max}
+    rain_clip_min: ${dataset.value_clip.rain_min}
+    rain_clip_max: ${dataset.value_clip.rain_max}
+    rain_ratio_filter_enabled: ${dataset.rain_ratio_filter.enabled}
+    rain_ratio_filter_file_name: ${dataset.rain_ratio_filter.file_name}
+    rain_ratio_filter_column: ${dataset.rain_ratio_filter.column}
+    rain_ratio_filter_min_value: ${dataset.rain_ratio_filter.min_value}
+    rain_ratio_filter_mode: ${dataset.rain_ratio_filter.mode}
+    aug_enabled: ${dataset.augmentation.train_enabled}
+    aug_random_crop_prob: ${dataset.augmentation.random_crop_prob}
+    aug_random_crop_min_scale: ${dataset.augmentation.random_crop_min_scale}
+    aug_random_crop_max_scale: ${dataset.augmentation.random_crop_max_scale}
+    aug_random_crop_keep_size: ${dataset.augmentation.random_crop_keep_size}
+    aug_temporal_reverse_prob: ${dataset.augmentation.temporal_reverse_prob}
+    batching_method: per_stream
+    iterate_over_all: true
+    is_cycled: false
+    use_streaming_loader: true
+    batch_size: 1          # 512 高分辨率且包含多分支网络，建议将 Batch Size 设为 2 防止显存溢出
+    shuffle: true
+    num_workers: 4
+    persistent_workers: true
+    pin_memory: true
+    drop_last: true
+    prefetch_factor: 2
+    iter_index_mode: shuffle_each_epoch
+
+  val:
+    _target_: src.dataset.rain_ts_litdata.get_litdata_rain_ts_dataloader
+    inp_dirs: ${dataset.val_inp_dirs}
+    time_interval: ${dataset.time_interval}
+    n_past: ${dataset.n_past}
+    n_futures: ${dataset.n_futures}
+    img_resize: ${dataset.img_size}
+    stack_data: true
+    index_file_name: null
+    modality_zero_centering: ${dataset.modality_zero_centering}
+    rain_norm_mean: ${dataset.rain_norm.mean}
+    rain_norm_std: ${dataset.rain_norm.std}
+    clip_values: ${dataset.value_clip.enabled}
+    radar_clip_min: ${dataset.value_clip.radar_min}
+    radar_clip_max: ${dataset.value_clip.radar_max}
+    satellite_clip_min: ${dataset.value_clip.satellite_min}
+    satellite_clip_max: ${dataset.value_clip.satellite_max}
+    rain_clip_min: ${dataset.value_clip.rain_min}
+    rain_clip_max: ${dataset.value_clip.rain_max}
+    rain_ratio_filter_enabled: ${dataset.rain_ratio_filter.enabled}
+    rain_ratio_filter_file_name: ${dataset.rain_ratio_filter.file_name}
+    rain_ratio_filter_column: ${dataset.rain_ratio_filter.column}
+    rain_ratio_filter_min_value: ${dataset.rain_ratio_filter.min_value}
+    rain_ratio_filter_mode: ${dataset.rain_ratio_filter.mode}
+    aug_enabled: ${dataset.augmentation.val_enabled}
+    aug_random_crop_prob: 0.0
+    aug_random_crop_min_scale: 1.0
+    aug_random_crop_max_scale: 1.0
+    aug_random_crop_keep_size: ${dataset.augmentation.random_crop_keep_size}
+    aug_temporal_reverse_prob: 0.0
+    batching_method: per_stream
+    iterate_over_all: true
+    is_cycled: false
+    use_streaming_loader: true
+    batch_size: 4
+    shuffle: true
+    num_workers: 1
+    persistent_workers: true
+    pin_memory: false
+    drop_last: true
+    prefetch_factor: 2
+    iter_index_mode: shuffle_each_epoch
+
+train:
+  seed: 2025
+  max_steps: 100000
+  proj_dir: null
+  save_every: 200
+  resume_path:
+  max_grad_norm: 1.0
+  strict_target_isolation: false
+
+  # 保留多模态随机丢弃机制，维持系统稳健性
+  next_pred:
+    missing_modality:
+      enabled: true
+      drop_probs:
+        radar: 0.15
+        satellite: 0.15
+        rain: 0.05
+      min_available_modalities: 1
+
+  loss_weights:
+    radar: 1.0
+    satellite: 1.0
+    rain: 2.0
+
+  loss:
+    mode: mse
+    # ======== 【全新加入：物理平流形变约束项】 ========
+    lambda_smooth: 0.01    # 光流场平滑惩罚：约束相邻像素运动矢量，保证风向流体运动符合自然物理规律
+    lambda_residual: 0.005 # 残差稀疏惩罚 (L1)：强迫模型优先利用光流形变搬运像素，减少神经网络凭空生成的噪点伪影
+
+    # 完美保留针对极端降雨的加权增强回归项
+    rain_region_weight:
+      enabled: true
+      alpha: 2.0
+      r0: 0.05
+      gamma: 1.0
+
+    # 核心：因为光流形变在物理层面上天然保证了极高时序连贯度，旧版的像素差分惩罚直接设为 false，防止梯度冲突并大幅节省算力
+    temporal_diff:
+      enabled: false
+
+  optim:
+    _target_: torch.optim.AdamW
+    _partial_: true
+    lr: 2.0e-4             # 物理对齐架构由于包含空间 Warp 梯度，略微调小初始学习率可以防止震荡
+    betas: [0.9, 0.95]
+    weight_decay: 1.0e-4
+
+  scheduler:
+    _target_: src.utils.train_utils.lr_scheduler.get_cosine_schedule_reduced_with_warmup
+    _partial_: true
+    num_warmup_steps: 1000  # 增加 1000 步余弦热身，给光流场从随机震荡收敛到现实风向的缓冲期
+    num_training_steps: ${train.max_steps}
+    num_cycles: 1
+    reduced_factor: 2
+    min_lr: 1.0e-5
+
+  log:
+    run_comment: stage1_time_conditioned_advection
+    log_with_time: true
+    log_every: 10
+
+  debug: false
+
+val:
+  val_duration: 200
+  max_val_iters: 5
+  metric_data_range: 1.0
+  csi_thresholds: [0.1, 0.3, 0.5]
+  save_visuals: true
+  viz_sample_index: 0

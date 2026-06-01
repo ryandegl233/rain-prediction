@@ -19,7 +19,7 @@ from ..config_utils import function_config_to_basic_types
 
 # Typing aliases
 
-type HyperImageType = Float[Tensor, "b c h w"] | Float[NDArray, "h w c"]
+type    HyperImageType = Float[Tensor, "b c h w"] | Float[NDArray, "h w c"]
 
 type GTMapType = (
     Int[NDArray, "h w"]

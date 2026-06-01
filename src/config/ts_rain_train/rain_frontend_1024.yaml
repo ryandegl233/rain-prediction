@@ -34,7 +34,7 @@ accelerator:
     sync_each_batch: false
 
 dataset:
-  n_past: 4
+  n_past: 1
   n_futures: 6
   img_size: 448
   time_interval: 30
@@ -169,14 +169,15 @@ frontend:
     radar_channels: 1
     satellite_channels: 10
     rain_channels: 1
-    feature_channels: 24
-    shared_depth: 3
+    feature_channels: 8
+    shared_depth: 1
     scale_factor: 1.0
     output_size: [1024, 1024]
     residual_scale: 0.1
     upsample_mode: bilinear
     dropout: 0.0
     clamp_rain_min: 0.0
+    temporal_chunk_size: 1
 
 loss:
   spectral_weight: 1.0
@@ -218,4 +219,4 @@ train:
 
 val:
   val_duration: 200
-  max_val_iters: 10
+  max_val_iters: 1

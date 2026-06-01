@@ -6,8 +6,6 @@ keeps radar, satellite, and rain as separate shallow branches, then uses a
 shared residual trunk to learn interpolation-basis plus residual compensation.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Mapping
 
@@ -135,6 +133,7 @@ class MultimodalSpatialEnhancementFrontend(nn.Module):
         upsample_mode: str = "bilinear",
         dropout: float = 0.0,
         clamp_rain_min: float | None = None,
+        temporal_chunk_size: int | None = None,
     ) -> None:
         super().__init__()
         if scale_factor <= 0:
@@ -143,6 +142,8 @@ class MultimodalSpatialEnhancementFrontend(nn.Module):
             raise ValueError(f"output_size must be positive (H, W), got {output_size}")
         if feature_channels <= 0:
             raise ValueError(f"feature_channels must be > 0, got {feature_channels}")
+        if temporal_chunk_size is not None and temporal_chunk_size <= 0:
+            raise ValueError(f"temporal_chunk_size must be > 0 or None, got {temporal_chunk_size}")
 
         self.radar_channels = int(radar_channels)
         self.satellite_channels = int(satellite_channels)
@@ -152,6 +153,7 @@ class MultimodalSpatialEnhancementFrontend(nn.Module):
         self.residual_scale = float(residual_scale)
         self.upsample_mode = str(upsample_mode)
         self.clamp_rain_min = clamp_rain_min
+        self.temporal_chunk_size = None if temporal_chunk_size is None else int(temporal_chunk_size)
 
         self.radar_stem = ModalityStem2D(self.radar_channels, feature_channels)
         self.satellite_stem = ModalityStem2D(self.satellite_channels, feature_channels)
@@ -184,6 +186,67 @@ class MultimodalSpatialEnhancementFrontend(nn.Module):
             return _as_bcthw(x, name="x")
         return resize_bcthw(x, size=target_size, mode=self.upsample_mode)
 
+    def _forward_chunk(
+        self,
+        radar: torch.Tensor,
+        satellite: torch.Tensor,
+        rain: torch.Tensor,
+        *,
+        target_size: tuple[int, int] | None,
+    ) -> SpatialFrontendOutput:
+        radar_base = self._resize_input(radar, target_size=target_size)
+        satellite_base = self._resize_input(satellite, target_size=target_size)
+        rain_base = self._resize_input(rain, target_size=target_size)
+
+        radar_flat, shape = _flatten_time(radar_base)
+        satellite_flat, _ = _flatten_time(satellite_base)
+        rain_flat, _ = _flatten_time(rain_base)
+
+        features = torch.cat(
+            [
+                self.radar_stem(radar_flat),
+                self.satellite_stem(satellite_flat),
+                self.rain_stem(rain_flat),
+            ],
+            dim=1,
+        )
+        shared = self.shared_trunk(features)
+        radar_residual = _unflatten_time(self.radar_head(shared), shape)
+        satellite_residual = _unflatten_time(self.satellite_head(shared), shape)
+        rain_residual = _unflatten_time(self.rain_head(shared), shape)
+
+        radar_out = radar_base + self.residual_scale * radar_residual
+        satellite_out = satellite_base + self.residual_scale * satellite_residual
+        rain_out = rain_base + self.residual_scale * rain_residual
+        if self.clamp_rain_min is not None:
+            rain_out = rain_out.clamp_min(float(self.clamp_rain_min))
+
+        return SpatialFrontendOutput(
+            radar=radar_out,
+            satellite=satellite_out,
+            rain=rain_out,
+            radar_base=radar_base,
+            satellite_base=satellite_base,
+            rain_base=rain_base,
+            radar_residual=radar_residual,
+            satellite_residual=satellite_residual,
+            rain_residual=rain_residual,
+        )
+
+    @staticmethod
+    def _cat_outputs(chunks: list[SpatialFrontendOutput]) -> SpatialFrontendOutput:
+        return SpatialFrontendOutput(
+            radar=torch.cat([chunk.radar for chunk in chunks], dim=2),
+            satellite=torch.cat([chunk.satellite for chunk in chunks], dim=2),
+            rain=torch.cat([chunk.rain for chunk in chunks], dim=2),
+            radar_base=torch.cat([chunk.radar_base for chunk in chunks], dim=2),
+            satellite_base=torch.cat([chunk.satellite_base for chunk in chunks], dim=2),
+            rain_base=torch.cat([chunk.rain_base for chunk in chunks], dim=2),
+            radar_residual=torch.cat([chunk.radar_residual for chunk in chunks], dim=2),
+            satellite_residual=torch.cat([chunk.satellite_residual for chunk in chunks], dim=2),
+            rain_residual=torch.cat([chunk.rain_residual for chunk in chunks], dim=2),
+        )
+
     def forward(
         self,
         radar: torch.Tensor,
@@ -212,46 +275,26 @@ class MultimodalSpatialEnhancementFrontend(nn.Module):
             raise ValueError(f"rain channel mismatch: expected {self.rain_channels}, got {rain.shape[1]}")
 
         target_size = self._target_size(radar)
-        radar_base = self._resize_input(radar, target_size=target_size)
-        satellite_base = self._resize_input(satellite, target_size=target_size)
-        rain_base = self._resize_input(rain, target_size=target_size)
-
-        radar_flat, shape = _flatten_time(radar_base)
-        satellite_flat, _ = _flatten_time(satellite_base)
-        rain_flat, _ = _flatten_time(rain_base)
-
-        features = torch.cat(
-            [
-                self.radar_stem(radar_flat),
-                self.satellite_stem(satellite_flat),
-                self.rain_stem(rain_flat),
-            ],
-            dim=1,
-        )
-        shared = self.shared_trunk(features)
-        radar_residual = _unflatten_time(self.radar_head(shared), shape)
-        satellite_residual = _unflatten_time(self.satellite_head(shared), shape)
-        rain_residual = _unflatten_time(self.rain_head(shared), shape)
-
-        radar_out = radar_base + self.residual_scale * radar_residual
-        satellite_out = satellite_base + self.residual_scale * satellite_residual
-        rain_out = rain_base + self.residual_scale * rain_residual
-        if self.clamp_rain_min is not None:
-            rain_out = rain_out.clamp_min(float(self.clamp_rain_min))
+        chunk_size = self.temporal_chunk_size
+        if chunk_size is None or chunk_size >= int(radar.shape[2]):
+            output = self._forward_chunk(radar, satellite, rain, target_size=target_size)
+        else:
+            chunks: list[SpatialFrontendOutput] = []
+            for start in range(0, int(radar.shape[2]), chunk_size):
+                end = min(start + chunk_size, int(radar.shape[2]))
+                chunks.append(
+                    self._forward_chunk(
+                        radar[:, :, start:end],
+                        satellite[:, :, start:end],
+                        rain[:, :, start:end],
+                        target_size=target_size,
+                    )
+                )
+            output = self._cat_outputs(chunks)
 
         if not return_dict:
-            return radar_out, satellite_out, rain_out
-        return SpatialFrontendOutput(
-            radar=radar_out,
-            satellite=satellite_out,
-            rain=rain_out,
-            radar_base=radar_base,
-            satellite_base=satellite_base,
-            rain_base=rain_base,
-            radar_residual=radar_residual,
-            satellite_residual=satellite_residual,
-            rain_residual=rain_residual,
-        )
+            return output.radar, output.satellite, output.rain
+        return output
 
 
 def _gradient_xy(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
