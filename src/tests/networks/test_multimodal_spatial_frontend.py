@@ -99,7 +99,7 @@ def test_zero_initialized_heads_match_interpolation_basis() -> None:
     assert torch.allclose(out.rain, resize_bcthw(rain, size=(20, 20)))
 
 
-def test_rain_output_does_not_depend_on_radar_or_satellite_features() -> None:
+def test_rain_output_uses_multimodal_gate_without_direct_fused_residual() -> None:
     torch.manual_seed(7)
     _radar, _satellite, rain = _make_inputs(batch=1, frames=1, size=8)
     radar_a = torch.rand(1, 1, 1, 8, 8)
@@ -114,11 +114,16 @@ def test_rain_output_does_not_depend_on_radar_or_satellite_features() -> None:
     )
     with torch.no_grad():
         model.rain_head.weight.fill_(0.1)
+        model.rain_gate_head.weight.fill_(0.1)
+        model.rain_gate_head.bias.zero_()
 
     out_a = model(radar=radar_a, satellite=satellite_a, rain=rain)
     out_b = model(radar=radar_b, satellite=satellite_b, rain=rain)
 
-    assert torch.allclose(out_a.rain, out_b.rain, atol=1.0e-6)
+    assert out_a.rain_gate is not None
+    assert out_b.rain_gate is not None
+    assert not torch.allclose(out_a.rain_gate, out_b.rain_gate)
+    assert not torch.allclose(out_a.rain, out_b.rain)
 
 
 def test_chunked_zero_initialized_heads_match_interpolation_basis() -> None:

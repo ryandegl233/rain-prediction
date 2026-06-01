@@ -100,6 +100,7 @@ class SpatialFrontendOutput:
     radar_residual: torch.Tensor
     satellite_residual: torch.Tensor
     rain_residual: torch.Tensor
+    rain_gate: torch.Tensor | None = None
 
     def enhanced(self) -> TensorDict:
         return {"radar": self.radar, "satellite": self.satellite, "rain": self.rain}
@@ -173,10 +174,13 @@ class MultimodalSpatialEnhancementFrontend(nn.Module):
         self.radar_head = nn.Conv2d(shared_channels, self.radar_channels, kernel_size=3, padding=1)
         self.satellite_head = nn.Conv2d(shared_channels, self.satellite_channels, kernel_size=3, padding=1)
         self.rain_head = nn.Conv2d(feature_channels, self.rain_channels, kernel_size=3, padding=1)
+        self.rain_gate_head = nn.Conv2d(shared_channels, self.rain_channels, kernel_size=3, padding=1)
 
         for head in (self.radar_head, self.satellite_head, self.rain_head):
             nn.init.zeros_(head.weight)
             nn.init.zeros_(head.bias)
+        nn.init.zeros_(self.rain_gate_head.weight)
+        nn.init.constant_(self.rain_gate_head.bias, 2.0)
 
     def _target_size(self, radar: torch.Tensor) -> tuple[int, int] | None:
         if self.output_size is not None:
@@ -223,7 +227,10 @@ class MultimodalSpatialEnhancementFrontend(nn.Module):
         rain_shared = self.rain_trunk(rain_features)
         radar_residual = _unflatten_time(self.radar_head(shared), shape)
         satellite_residual = _unflatten_time(self.satellite_head(shared), shape)
-        rain_residual = _unflatten_time(self.rain_head(rain_shared), shape)
+        rain_gate_flat = torch.sigmoid(self.rain_gate_head(shared))
+        rain_residual_flat = self.rain_head(rain_shared) * rain_gate_flat
+        rain_residual = _unflatten_time(rain_residual_flat, shape)
+        rain_gate = _unflatten_time(rain_gate_flat, shape)
 
         radar_out = radar_base + self.residual_scale * radar_residual
         satellite_out = satellite_base + self.residual_scale * satellite_residual
@@ -241,6 +248,7 @@ class MultimodalSpatialEnhancementFrontend(nn.Module):
             radar_residual=radar_residual,
             satellite_residual=satellite_residual,
             rain_residual=rain_residual,
+            rain_gate=rain_gate,
         )
 
     @staticmethod
@@ -255,6 +263,7 @@ class MultimodalSpatialEnhancementFrontend(nn.Module):
             radar_residual=torch.cat([chunk.radar_residual for chunk in chunks], dim=2),
             satellite_residual=torch.cat([chunk.satellite_residual for chunk in chunks], dim=2),
             rain_residual=torch.cat([chunk.rain_residual for chunk in chunks], dim=2),
+            rain_gate=torch.cat([chunk.rain_gate for chunk in chunks if chunk.rain_gate is not None], dim=2),
         )
 
     def forward(
