@@ -111,13 +111,13 @@ dataset:
     iterate_over_all: true
     is_cycled: false
     use_streaming_loader: true
-    batch_size: 1
+    batch_size: 8
     shuffle: true
-    num_workers: 2
+    num_workers: 8
     persistent_workers: true
     pin_memory: true
     drop_last: true
-    prefetch_factor: 1
+    prefetch_factor: 2
     iter_index_mode: shuffle_each_epoch
 
   val:
@@ -157,11 +157,11 @@ dataset:
     use_streaming_loader: true
     batch_size: 1
     shuffle: false
-    num_workers: 1
+    num_workers: 2
     persistent_workers: true
-    pin_memory: false
+    pin_memory: true
     drop_last: true
-    prefetch_factor: 1
+    prefetch_factor: 2
     iter_index_mode: sequential
 
 frontend:
@@ -218,8 +218,8 @@ train:
   log:
     run_comment: frontend_256_to_1024
     log_with_time: true
-    log_every: 10
+    log_every: 50
 
 val:
-  val_duration: 200
+  val_duration: 1000
   max_val_iters: 1
