@@ -40,6 +40,44 @@ def test_forward_shapes_and_return_modes() -> None:
     assert out_rain.shape == (2, 1, 2, 32, 32)
 
 
+def test_cross_modal_and_local_zero_gates_preserve_baseline_output() -> None:
+    torch.manual_seed(7)
+    baseline = _build_model().eval()
+    enhanced = RainCausalPatchTransformerNextFrame(
+        in_channels=12,
+        out_channels=1,
+        radar_out_channels=1,
+        satellite_out_channels=10,
+        rain_out_channels=1,
+        input_size=32,
+        patch_size=4,
+        stem_channels=32,
+        dim=64,
+        depth=2,
+        num_heads=4,
+        mlp_ratio=2.0,
+        dropout=0.0,
+        drop_path=0.0,
+        max_frames=8,
+        decoder_base_channels=32,
+        activation_checkpoint=False,
+        cross_modal_adapter_enabled=True,
+        cross_modal_adapter_heads=4,
+        local_window_refiner_enabled=True,
+        local_window_size=4,
+        local_window_heads=4,
+    ).eval()
+    incompatible = enhanced.load_state_dict(baseline.state_dict(), strict=False)
+    assert incompatible.unexpected_keys == []
+    assert all(key.startswith(("cross_modal_adapter.", "local_window_refiner.")) for key in incompatible.missing_keys)
+
+    x = torch.randn(2, 12, 5, 32, 32)
+    expected = baseline(x=x, predict_frames=1, strict_target_isolation=True, return_modality_dict=False)
+    actual = enhanced(x=x, predict_frames=1, strict_target_isolation=True, return_modality_dict=False)
+
+    torch.testing.assert_close(actual, expected, rtol=0.0, atol=0.0)
+
+
 def test_forward_ar_block_shapes() -> None:
     model = _build_model()
     context = torch.randn(2, 12, 4, 32, 32)

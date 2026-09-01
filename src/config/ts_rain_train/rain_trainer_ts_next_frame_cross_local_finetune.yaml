@@ -1,0 +1,51 @@
+defaults:
+  - rain_trainer_ts_next_frame
+  - override rain_prediction_model: causal_patch_transformer_next_frame_cross_local
+  - _self_
+
+hydra:
+  run:
+    dir: runs/next_frame_cross_local_finetune/${now:%Y-%m-%d}/${now:%H-%M-%S}_${train.log.run_comment}
+
+accelerator:
+  gradient_accumulation_plugin:
+    num_steps: 8
+  project_config:
+    project_dir: runs/next_frame_cross_local_finetune/
+    logging_dir: runs/next_frame_cross_local_finetune/tensorboard
+
+dataset:
+  rain_ratio_filter:
+    enabled: true
+    file_name: metadata_rain_ratio.parquet
+    column: rain_ratio_gt_0p02
+    min_value: 0.02
+    mode: future_any
+  train:
+    batch_size: 1
+  val:
+    batch_size: 1
+
+train:
+  max_steps: 12000
+  init_model_path: /home/rainpred/RainPrediction/runs/next_frame_final/2026-08-17/14-41-50_stage1_next_frame_block/checkpoints/checkpoint_19
+  resume_path: null
+  next_pred:
+    rollout_branch:
+      use_gt_future_modalities: false
+  optim:
+    lr: 3.0e-5
+  scheduler:
+    num_training_steps: ${train.max_steps}
+  log:
+    run_comment: cross_local_finetune
+
+# Keep the baseline evaluation protocol and metric definitions unchanged.
+val:
+  max_val_iters: 60
+  rollout_mode: frame
+  rollout_block_size: 1
+  rollout_history_detach: true
+  rollout_use_gt_future_modalities: false
+  metric_data_range: 1.0
+  csi_thresholds: [0.1, 0.3, 0.5]

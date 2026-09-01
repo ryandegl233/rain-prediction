@@ -92,11 +92,9 @@ class RainTimeSeriesAugmentor:
         rain_future: torch.Tensor,
         time_past: torch.Tensor,
         time_future: torch.Tensor,
-        time_past_timestamp: torch.Tensor | None = None,
-        time_future_timestamp: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
         if not self.enabled:
-            output = {
+            return {
                 "radar_past": radar_past,
                 "radar_future": radar_future,
                 "satellite_past": satellite_past,
@@ -111,10 +109,6 @@ class RainTimeSeriesAugmentor:
                 "aug_crop_box_norm_xyxy": torch.tensor([0.0, 0.0, 1.0, 1.0], dtype=torch.float32),
                 "aug_time_reversed": torch.tensor(0, dtype=torch.int64),
             }
-            if time_past_timestamp is not None and time_future_timestamp is not None:
-                output["time_past_timestamp"] = time_past_timestamp
-                output["time_future_timestamp"] = time_future_timestamp
-            return output
 
         h = int(radar_past.shape[-2])
         w = int(radar_past.shape[-1])
@@ -196,11 +190,6 @@ class RainTimeSeriesAugmentor:
             time_full = torch.flip(time_full, dims=[0])
             time_past = time_full[:n_past]
             time_future = time_full[n_past : n_past + n_futures]
-            if time_past_timestamp is not None and time_future_timestamp is not None:
-                timestamp_full = torch.cat([time_past_timestamp, time_future_timestamp], dim=0)
-                timestamp_full = torch.flip(timestamp_full, dims=[0])
-                time_past_timestamp = timestamp_full[:n_past]
-                time_future_timestamp = timestamp_full[n_past : n_past + n_futures]
             is_time_reversed = True
 
         x0 = float(left)
@@ -208,7 +197,7 @@ class RainTimeSeriesAugmentor:
         x1 = float(left + crop_w)
         y1 = float(top + crop_h)
 
-        output = {
+        return {
             "radar_past": radar_past,
             "radar_future": radar_future,
             "satellite_past": satellite_past,
@@ -224,7 +213,3 @@ class RainTimeSeriesAugmentor:
             ),
             "aug_time_reversed": torch.tensor(1 if is_time_reversed else 0, dtype=torch.int64),
         }
-        if time_past_timestamp is not None and time_future_timestamp is not None:
-            output["time_past_timestamp"] = time_past_timestamp
-            output["time_future_timestamp"] = time_future_timestamp
-        return output

@@ -41,3 +41,10 @@ decoder_condition_mode: none
 decoder_output_mode: pixels
 use_time_embedding: true
 activation_checkpoint: true
+
+# These branches are zero-gated, so a baseline checkpoint has identical output at step zero.
+cross_modal_adapter_enabled: true
+cross_modal_adapter_heads: 8
+local_window_refiner_enabled: true
+local_window_size: 7
+local_window_heads: 8

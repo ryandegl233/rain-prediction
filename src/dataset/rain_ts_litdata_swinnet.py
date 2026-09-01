@@ -122,7 +122,9 @@ class RainLitData_CLS_Filter(RainTimeSeriesDataset):
         return cls_idx.long()
 
     def _item_has_bad_value(self, item: dict) -> bool:
-        for _, v in item.items():
+        for key, v in item.items():
+            if key.endswith("_timestamp"):
+                continue
             if isinstance(v, torch.Tensor) and torch.is_floating_point(v):
                 if torch.isnan(v).any() or torch.isinf(v).any():
                     return True

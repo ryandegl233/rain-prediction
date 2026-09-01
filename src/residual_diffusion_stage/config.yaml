@@ -1,0 +1,54 @@
+model:
+  latent_channels: 8
+  history_channels: 12
+  history_patch_size: 16
+  condition_dim: 128
+  condition_heads: 4
+  condition_tokens: 64
+  base_channels: 48
+  channel_mult: [1, 2, 4, 6]
+  train_steps: 1000
+  sample_steps: 30
+  gradient_checkpointing: true
+
+ae_loss:
+  global_l1_weight: 1.0
+  active_l1_weight: 2.0
+  bias_weight: 1.0
+  std_weight: 0.5
+  active_threshold: 0.01
+
+# Kept noise-only so the completed v1 run remains reproducible. Use
+# config_v2.yaml for decoded rainfall/residual supervision.
+diffusion_loss:
+  noise_weight: 1.0
+  rainfall_l1_weight: 0.0
+  active_l1_weight: 0.0
+  bias_weight: 0.0
+  std_weight: 0.0
+  direction_weight: 0.0
+  active_threshold: 0.01
+  x0_clip: 8.0
+
+training:
+  # 1500 batches/epoch gives roughly the same update counts as the old
+  # 306-sample experiment trained for 30/45 epochs.
+  ae_epochs: 6
+  diffusion_epochs: 9
+  learning_rate: 1.0e-4
+  minimum_learning_rate: 1.0e-6
+  weight_decay: 1.0e-2
+  gradient_clip_norm: 1.0
+  batch_size: 1
+  gradient_accumulation_steps: 8
+  max_train_batches: 1500
+  max_val_batches: 60
+  sample_val_batches: 4
+  latent_calibration_batches: 128
+  seed: 2025
+
+ablation:
+  residual_scales: [0.0, 0.025, 0.05, 0.075, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.75, 1.0, 1.25]
+  ensemble_size: 4
+  ddim_steps: 30
+  max_val_batches: 60

@@ -4,12 +4,11 @@ hydra:
     # 存放在全新的独立目录中，区分以前的自回归实验
     dir: runs/time_conditioned_advection/${now:%Y-%m-%d}/${now:%H-%M-%S}_${train.log.run_comment}
 
-rain_prediction_model:
-  _target_: src.networks.time_conditioned_advection.TimeConditionedAdvectionTransformer
-  radar_out_channels: 1
-  satellite_out_channels: 10
-  rain_out_channels: 1
-  embed_dim: 256
+defaults:
+  - rain_prediction_model: causal_patch_transformer_next_frame
+  - _self_
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
 
 accelerator:
   _target_: accelerate.Accelerator
@@ -42,8 +41,8 @@ ema:
   update_every: 1
 
 dataset:
-  n_past: 4
-  n_futures: 10           # 核心：配合 5 分钟间隔，DataLoader 会连续读取未来 30 分钟的数据（共 6 帧）
+  n_past: 3
+  n_futures: 10           # 核心：配合 5 分钟间隔，DataLoader 会连续读取未来 50 分钟的数据（共 10 帧）
   img_size: 512          # 512 高分辨率空间特征演化
   time_interval: 30       # 核心：全新高频临近预报分辨率（5 分钟/帧）
 
@@ -125,7 +124,7 @@ dataset:
     iterate_over_all: true
     is_cycled: false
     use_streaming_loader: true
-    batch_size: 1          # 512 高分辨率且包含多分支网络，建议将 Batch Size 设为 2 防止显存溢出
+    batch_size: 1          # 512 高分辨率且包含多分支网络，建议将 Batch Size 设为 1 或 2 防止显存溢出
     shuffle: true
     num_workers: 4
     persistent_workers: true
@@ -168,7 +167,7 @@ dataset:
     iterate_over_all: true
     is_cycled: false
     use_streaming_loader: true
-    batch_size: 4
+    batch_size: 1
     shuffle: true
     num_workers: 1
     persistent_workers: true
@@ -202,40 +201,44 @@ train:
     rain: 2.0
 
   loss:
-    mode: mse
-    # ======== 【全新加入：物理平流形变约束项】 ========
-    lambda_smooth: 0.01    # 光流场平滑惩罚：约束相邻像素运动矢量，保证风向流体运动符合自然物理规律
-    lambda_residual: 0.005 # 残差稀疏惩罚 (L1)：强迫模型优先利用光流形变搬运像素，减少神经网络凭空生成的噪点伪影
+    mode: "mae"
+    sequence_loss_enabled: true  # 🌟 开启序列级损失，不要只算单帧！
+    sequence_context_frames: 3
+    scheduled_sampling:
+      enabled: true             # 🌟 开启计划采样
+      start_prob: 1.0           # 初始 100% 用 True Frame
+      end_prob: 0.2
 
-    # 完美保留针对极端降雨的加权增强回归项
+    # 针对极端降雨的加权增强回归项
     rain_region_weight:
       enabled: true
-      alpha: 2.0
-      r0: 0.05
-      gamma: 1.0
+      alpha: 1.2          # 🔴 修改点 2：从 5.0 暴降至 1.2，削弱模型对大雨的极度偏执
+      r0: 0.1             # 🔴 修改点 3：从 0.05 提高到 0.1，过滤底噪，防止小雨点被放大成暴雨
+      gamma: 1.5
 
-    # 核心：因为光流形变在物理层面上天然保证了极高时序连贯度，旧版的像素差分惩罚直接设为 false，防止梯度冲突并大幅节省算力
+    # 🌟 核心修改点：开启时间差分约束项，逼迫自回归模型产生位移演化梯度，根治画面复制静止问题
     temporal_diff:
-      enabled: false
+      enabled: true
+      lambda_diff: 2.0     # 惩罚权重，推荐设在 1.5 - 2.5 之间以达到最佳对抗静止效果
 
   optim:
     _target_: torch.optim.AdamW
     _partial_: true
-    lr: 2.0e-4             # 物理对齐架构由于包含空间 Warp 梯度，略微调小初始学习率可以防止震荡
+    lr: 2.0e-4
     betas: [0.9, 0.95]
     weight_decay: 1.0e-4
 
   scheduler:
     _target_: src.utils.train_utils.lr_scheduler.get_cosine_schedule_reduced_with_warmup
     _partial_: true
-    num_warmup_steps: 1000  # 增加 1000 步余弦热身，给光流场从随机震荡收敛到现实风向的缓冲期
+    num_warmup_steps: 1000
     num_training_steps: ${train.max_steps}
     num_cycles: 1
     reduced_factor: 2
     min_lr: 1.0e-5
 
   log:
-    run_comment: stage1_time_conditioned_advection
+    run_comment: stage1_causal_patch_transformer
     log_with_time: true
     log_every: 10
 

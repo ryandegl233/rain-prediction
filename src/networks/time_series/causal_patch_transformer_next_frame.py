@@ -23,6 +23,159 @@ def _valid_gn_groups(channels: int, max_groups: int = 32) -> int:
     return 1
 
 
+class _CrossModalConditioner(nn.Module):
+    def __init__(
+        self,
+        dim: int,
+        heads: int,
+        modality_channels: tuple[int, int, int],
+        patch_size: int,
+        frame_patch_size: int,
+    ) -> None:
+        super().__init__()
+        self.frame_patch_size = frame_patch_size
+        self.patch_size = patch_size
+        self.adapters = nn.ModuleList(
+            [
+                nn.Conv3d(
+                    in_channels=channels,
+                    out_channels=dim,
+                    kernel_size=(frame_patch_size, patch_size, patch_size),
+                    stride=(frame_patch_size, patch_size, patch_size),
+                )
+                for channels in modality_channels
+            ]
+        )
+        self.query_norm = nn.LayerNorm(dim)
+        self.memory_norm = nn.LayerNorm(dim)
+        self.attention = nn.MultiheadAttention(dim, heads, batch_first=True)
+        self.gate = nn.Parameter(torch.zeros(()))
+
+    def forward(self, target_tokens: torch.Tensor, context_x: torch.Tensor) -> torch.Tensor:
+        if context_x.shape[2] < self.frame_patch_size:
+            return target_tokens
+
+        modality_inputs = torch.split(context_x, [adapter.in_channels for adapter in self.adapters], dim=1)
+        modality_tokens = []
+        for adapter, modality_input in zip(self.adapters, modality_inputs, strict=True):
+            encoded = adapter(modality_input)
+            modality_tokens.append(rearrange(encoded, "b d t h w -> b t (h w) d"))
+
+        b, target_t, n, d = target_tokens.shape
+        memory = torch.stack(modality_tokens, dim=3)
+        memory = rearrange(memory, "b t n m d -> (b n) (t m) d")
+        query = rearrange(target_tokens, "b t n d -> (b n) t d")
+        conditioned = self.attention(
+            self.query_norm(query),
+            self.memory_norm(memory),
+            self.memory_norm(memory),
+            need_weights=False,
+        )[0]
+        conditioned = rearrange(conditioned, "(b n) t d -> b t n d", b=b, n=n, t=target_t, d=d)
+        return target_tokens + torch.tanh(self.gate).to(target_tokens.dtype) * conditioned
+
+
+class _WindowAttentionBlock(nn.Module):
+    def __init__(self, dim: int, heads: int, window_size: int, shift_size: int) -> None:
+        super().__init__()
+        self.heads = heads
+        self.window_size = window_size
+        self.shift_size = shift_size
+        self.norm_attention = nn.LayerNorm(dim)
+        self.attention = nn.MultiheadAttention(dim, heads, batch_first=True)
+        self.norm_mlp = nn.LayerNorm(dim)
+        self.mlp = nn.Sequential(nn.Linear(dim, 4 * dim), nn.GELU(), nn.Linear(4 * dim, dim))
+
+    def forward(self, x: torch.Tensor, height: int, width: int) -> torch.Tensor:
+        b, t, n, d = x.shape
+        if n != height * width:
+            raise ValueError(f"Expected {height * width} tokens, got {n}")
+        if height % self.window_size != 0 or width % self.window_size != 0:
+            raise ValueError(
+                f"Feature grid {(height, width)} must be divisible by local window size {self.window_size}"
+            )
+
+        batch_time = b * t
+        windows_h = height // self.window_size
+        windows_w = width // self.window_size
+        features = rearrange(x, "b t (h w) d -> (b t) h w d", h=height, w=width)
+        if self.shift_size > 0:
+            features = torch.roll(features, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))
+
+        windows = rearrange(
+            features,
+            "bt (nh wh) (nw ww) d -> (bt nh nw) (wh ww) d",
+            nh=windows_h,
+            nw=windows_w,
+            wh=self.window_size,
+            ww=self.window_size,
+        )
+        attention_mask = None
+        if self.shift_size > 0:
+            region_ids = torch.zeros((1, height, width, 1), device=x.device, dtype=torch.long)
+            h_slices = (slice(0, -self.window_size), slice(-self.window_size, -self.shift_size), slice(-self.shift_size, None))
+            w_slices = (slice(0, -self.window_size), slice(-self.window_size, -self.shift_size), slice(-self.shift_size, None))
+            region = 0
+            for h_slice in h_slices:
+                for w_slice in w_slices:
+                    region_ids[:, h_slice, w_slice, :] = region
+                    region += 1
+            region_ids = torch.roll(region_ids, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))
+            mask_windows = rearrange(
+                region_ids,
+                "b (nh wh) (nw ww) c -> (b nh nw) (wh ww) c",
+                nh=windows_h,
+                nw=windows_w,
+                wh=self.window_size,
+                ww=self.window_size,
+            ).squeeze(-1)
+            attention_mask = mask_windows[:, :, None] - mask_windows[:, None, :]
+            attention_mask = attention_mask.ne(0).to(dtype=x.dtype) * -100.0
+            attention_mask = attention_mask.repeat(batch_time, 1, 1).repeat_interleave(self.heads, dim=0)
+
+        attended = self.attention(
+            self.norm_attention(windows),
+            self.norm_attention(windows),
+            self.norm_attention(windows),
+            attn_mask=attention_mask,
+            need_weights=False,
+        )[0]
+        windows = windows + attended
+        windows = windows + self.mlp(self.norm_mlp(windows))
+        features = rearrange(
+            windows,
+            "(bt nh nw) (wh ww) d -> bt (nh wh) (nw ww) d",
+            bt=batch_time,
+            nh=windows_h,
+            nw=windows_w,
+            wh=self.window_size,
+            ww=self.window_size,
+        )
+        if self.shift_size > 0:
+            features = torch.roll(features, shifts=(self.shift_size, self.shift_size), dims=(1, 2))
+        return rearrange(features, "(b t) h w d -> b t (h w) d", b=b, t=t, h=height, w=width)
+
+
+class _ShiftedWindowRefiner(nn.Module):
+    def __init__(self, dim: int, heads: int, window_size: int) -> None:
+        super().__init__()
+        if window_size < 2:
+            raise ValueError(f"local window size must be at least 2, got {window_size}")
+        self.blocks = nn.ModuleList(
+            [
+                _WindowAttentionBlock(dim, heads, window_size, shift_size=0),
+                _WindowAttentionBlock(dim, heads, window_size, shift_size=window_size // 2),
+            ]
+        )
+        self.gate = nn.Parameter(torch.zeros(()))
+
+    def forward(self, x: torch.Tensor, height: int, width: int) -> torch.Tensor:
+        refined = x
+        for block in self.blocks:
+            refined = block(refined, height=height, width=width)
+        return x + torch.tanh(self.gate).to(x.dtype) * (refined - x)
+
+
 class _ResNetDownsampleStage3D(nn.Module):
     def __init__(
         self,
@@ -163,6 +316,11 @@ class RainCausalPatchTransformerNextFrame(nn.Module):
         decoder_output_mode: str = "pixels",
         use_time_embedding: bool = False,
         activation_checkpoint: bool = False,
+        cross_modal_adapter_enabled: bool = False,
+        cross_modal_adapter_heads: int | None = None,
+        local_window_refiner_enabled: bool = False,
+        local_window_size: int = 7,
+        local_window_heads: int | None = None,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
@@ -247,6 +405,8 @@ class RainCausalPatchTransformerNextFrame(nn.Module):
             raise ValueError(f"decoder_output_mode must be 'pixels' or 'residual', got {decoder_output_mode}")
         self.decoder_causal = bool(decoder_causal)
         self.use_time_embedding = bool(use_time_embedding)
+        self.cross_modal_adapter_enabled = bool(cross_modal_adapter_enabled)
+        self.local_window_refiner_enabled = bool(local_window_refiner_enabled)
 
         self.patch_embed: nn.Conv3d | None = None
         self.stem: ConvStem | None = None
@@ -310,6 +470,24 @@ class RainCausalPatchTransformerNextFrame(nn.Module):
             "satellite": self.satellite_out_channels,
             "rain": self.rain_out_channels,
         }
+        self.cross_modal_adapter: _CrossModalConditioner | None = None
+        if self.cross_modal_adapter_enabled:
+            cross_heads = num_heads if cross_modal_adapter_heads is None else int(cross_modal_adapter_heads)
+            self.cross_modal_adapter = _CrossModalConditioner(
+                dim=dim,
+                heads=cross_heads,
+                modality_channels=(self.radar_out_channels, self.satellite_out_channels, self.rain_out_channels),
+                patch_size=self.patch_size,
+                frame_patch_size=self.frame_patch_size,
+            )
+        self.local_window_refiner: _ShiftedWindowRefiner | None = None
+        if self.local_window_refiner_enabled:
+            local_heads = num_heads if local_window_heads is None else int(local_window_heads)
+            self.local_window_refiner = _ShiftedWindowRefiner(
+                dim=dim,
+                heads=local_heads,
+                window_size=int(local_window_size),
+            )
         if sum(self.modality_channels.values()) != self.in_channels:
             if self.decoder_condition_mode == "film" or self.decoder_output_mode == "residual":
                 raise ValueError(
@@ -678,6 +856,10 @@ class RainCausalPatchTransformerNextFrame(nn.Module):
 
         tokens = tokens[:, -predict_token_frames:, :, :]
         context_anchor = self._last_context_anchor(x=x, context_frames=context_frames_raw)
+        if self.cross_modal_adapter is not None:
+            tokens = self.cross_modal_adapter(tokens, context_x=x[:, :, :context_frames_raw])
+        if self.local_window_refiner is not None:
+            tokens = self.local_window_refiner(tokens, height=hp, width=wp)
         film_condition = self._build_film_condition_sequence(
             x=x,
             context_frames=context_frames_raw,

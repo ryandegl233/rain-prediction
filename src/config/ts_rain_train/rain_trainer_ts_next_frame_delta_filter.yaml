@@ -1,7 +1,7 @@
 hydra:
   output_subdir: hydra_config
   run:
-    dir: runs/next_frame_final/${now:%Y-%m-%d}/${now:%H-%M-%S}_${train.log.run_comment}
+    dir: runs/next_frame_delta_filter/${now:%Y-%m-%d}/${now:%H-%M-%S}_${train.log.run_comment}
 
 defaults:
   - rain_prediction_model: causal_patch_transformer_next_frame
@@ -23,8 +23,8 @@ accelerator:
     use_stateful_dataloader: false
   project_config:
     _target_: accelerate.utils.ProjectConfiguration
-    project_dir: runs/next_frame_final/
-    logging_dir: runs/next_frame_final/tensorboard
+    project_dir: runs/next_frame_delta_filter/
+    logging_dir: runs/next_frame_delta_filter/tensorboard
     total_limit: 2
     automatic_checkpoint_naming: true
   gradient_accumulation_plugin:
@@ -69,7 +69,7 @@ dataset:
     rain_max: null
   rain_ratio_filter:
     enabled: true
-    # rain-area filter:
+    # Previous rain-area filter:
     # file_name: metadata_rain_ratio.parquet
     # column: rain_ratio_gt_0p02
     # min_value: 0.02
@@ -124,7 +124,7 @@ dataset:
     shuffle: true
     num_workers: 4
     persistent_workers: true
-    pin_memory: true  
+    pin_memory: true
     drop_last: true
     prefetch_factor: 2
     iter_index_mode: shuffle_each_epoch
@@ -177,7 +177,7 @@ train:
   max_steps: 100000
   proj_dir: null
   save_every: 1000
-  resume_path:
+  resume_path: /home/rainpred/RainPrediction/runs/next_frame_final/2026-08-17/14-41-50_stage1_next_frame_block/checkpoints/checkpoint_19
   max_grad_norm: 1.0
   strict_target_isolation: false
 
@@ -312,7 +312,7 @@ train:
     min_lr: 1.0e-5
 
   log:
-    run_comment: stage1_next_frame_block
+    run_comment: stage1_next_frame_delta_filter
     log_with_time: true
     log_every: 10
 

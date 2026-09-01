@@ -160,6 +160,14 @@ class RainTSNextFrameTrainer:
         self.satellite_c = int(getattr(self.model, "satellite_out_channels", 10))
         self.rain_c = int(getattr(self.model, "rain_out_channels", 1))
 
+        init_model_path = self.train_cfg.get("init_model_path")
+        if init_model_path:
+            init_path = Path(str(init_model_path))
+            if not init_path.exists():
+                raise FileNotFoundError(f"init_model_path does not exist: {init_path}")
+            accelerate.load_checkpoint_in_model(self.model, str(init_path), strict=False)
+            self.log_msg(f"Loaded model initialization weights from {init_path}. Optimizer and scheduler start fresh.")
+
         self.gan_cfg = self.train_cfg.get("gan", {})
         self.use_gan = bool(self.gan_cfg.get("enabled", False))
         self.discriminator: nn.Module | None = None
@@ -289,6 +297,30 @@ class RainTSNextFrameTrainer:
         if not train_stack or not val_stack:
             raise ValueError("dataset.train/val.stack_data must be true for this trainer (expects tensor batches).")
 
+    def _resolve_project_dir(self) -> Path:
+        try:
+            hydra_cfg = HydraConfig.get()
+        except Exception:
+            hydra_cfg = None
+
+        if hydra_cfg is not None:
+            hydra_output_dir = getattr(hydra_cfg.runtime, "output_dir", None)
+            if hydra_output_dir not in (None, ""):
+                return Path(str(hydra_output_dir))
+
+        configured_proj_dir = self.train_cfg.get("proj_dir")
+        if configured_proj_dir not in (None, ""):
+            log_root = Path(str(configured_proj_dir))
+            if bool(self.train_cfg.log.get("log_with_time", True)):
+                stamp = time.strftime("%Y-%m-%d_%H-%M-%S")
+                log_root = log_root / stamp
+            run_comment = self.train_cfg.log.get("run_comment", "")
+            if run_comment:
+                log_root = Path(f"{log_root.as_posix()}_{run_comment}")
+            return log_root
+
+        raise ValueError("Unable to resolve project directory: Hydra runtime output_dir and train.proj_dir are both empty.")
+
     def _configure_logger(self) -> Path:
         logger.remove()
         logger.add(
@@ -298,19 +330,7 @@ class RainTSNextFrameTrainer:
             colorize=True,
         )
 
-        configured_proj_dir = getattr(self.train_cfg, "proj_dir", None)
-        use_configured_proj_dir = configured_proj_dir not in (None, "")
-        if use_configured_proj_dir:
-            log_root = Path(str(configured_proj_dir))
-            if self.train_cfg.log.log_with_time:
-                stamp = time.strftime("%Y-%m-%d_%H-%M-%S")
-                log_root = log_root / stamp
-            if self.train_cfg.log.run_comment:
-                log_root = Path(f"{log_root.as_posix()}_{self.train_cfg.log.run_comment}")
-        else:
-            hydra_cfg = HydraConfig.get()
-            log_root = Path(hydra_cfg.runtime.output_dir)
-            logger.info(f"[Hydra] use runtime output dir as log root: {log_root}")
+        log_root = self._resolve_project_dir()
         log_file = log_root / "log.log"
 
         if self.accelerator.use_distributed:
@@ -455,6 +475,29 @@ class RainTSNextFrameTrainer:
         if self.rain_norm_mean is None or self.rain_norm_std is None:
             return rain
         return denormalize_rain_linear(rain, mean=self.rain_norm_mean, std=self.rain_norm_std)
+
+    def _resolve_rain_residual_cfg(self) -> tuple[bool, float, bool, float]:
+        loss_cfg = self.train_cfg.get("loss", {})
+        residual_cfg = loss_cfg.get("rain_residual", {})
+        enabled = bool(residual_cfg.get("enabled", False))
+        delta_weight = float(residual_cfg.get("delta_weight", 1.0))
+        clamp_output = bool(residual_cfg.get("clamp_output", False))
+        min_value = float(residual_cfg.get("min_value", 0.0))
+        if delta_weight < 0:
+            raise ValueError(f"train.loss.rain_residual.delta_weight must be >= 0, got {delta_weight}")
+        return enabled, delta_weight, clamp_output, min_value
+
+    def _apply_rain_residual_output(self, pred_rain_delta: torch.Tensor, rain_ref: torch.Tensor) -> torch.Tensor:
+        if pred_rain_delta.shape != rain_ref.shape:
+            raise ValueError(
+                "rain residual reference shape mismatch: "
+                f"pred_delta={tuple(pred_rain_delta.shape)}, rain_ref={tuple(rain_ref.shape)}"
+            )
+        _, _, clamp_output, min_value = self._resolve_rain_residual_cfg()
+        pred_rain = rain_ref.to(device=pred_rain_delta.device, dtype=pred_rain_delta.dtype) + pred_rain_delta
+        if clamp_output:
+            pred_rain = pred_rain.clamp_min(min_value)
+        return pred_rain
 
     def _resolve_target_frames(self, n_future: int) -> tuple[str, int]:
         next_cfg = self.train_cfg.next_pred
@@ -662,6 +705,7 @@ class RainTSNextFrameTrainer:
                 "target_seed_time": target_seed_time,
                 "target_gt_time": target_gt_time,
                 "temporal_diff_anchor": diff_anchor,
+                "rain_residual_ref": self._split_modalities(target_seed_tensor)["rain"],
             }
             return sequence_context, target_seed_tensor, target_gt, aux
 
@@ -716,6 +760,7 @@ class RainTSNextFrameTrainer:
             "target_seed_time": target_seed_time,
             "target_gt_time": target_gt_time,
             "temporal_diff_anchor": anchor,
+            "rain_residual_ref": target_seed["rain"],
         }
         return context, target_seed_tensor, target_gt, aux
 
@@ -724,6 +769,7 @@ class RainTSNextFrameTrainer:
         pred: dict[str, torch.Tensor],
         target_gt: dict[str, torch.Tensor],
         aux: dict[str, float | int | str | torch.Tensor | dict[str, torch.Tensor]] | None = None,
+        loss_weight_override: dict[str, float] | None = None,
     ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
         def resolve_temporal_diff_weight() -> tuple[bool, float, str]:
             loss_cfg = self.train_cfg.get("loss", {})
@@ -760,14 +806,26 @@ class RainTSNextFrameTrainer:
             anchor_tensor: torch.Tensor | None = None,
             loss_weight: torch.Tensor | None = None,
         ) -> torch.Tensor | None:
-            _ = anchor_tensor
             if int(target_tensor.shape[2]) <= 0:
                 return None
 
-            # Use gt first frame (t2 in current sequence setup) as the common reference.
-            gt_ref = target_tensor[:, :, :1]
-            pred_diff = pred_tensor - gt_ref
-            target_diff = target_tensor - gt_ref
+            if anchor_tensor is not None:
+                if int(anchor_tensor.shape[2]) != 1:
+                    raise ValueError(
+                        "temporal diff anchor must contain exactly 1 frame, "
+                        f"got anchor_shape={tuple(anchor_tensor.shape)}"
+                    )
+                pred_seq = torch.cat([anchor_tensor, pred_tensor], dim=2)
+                target_seq = torch.cat([anchor_tensor, target_tensor], dim=2)
+            else:
+                pred_seq = pred_tensor
+                target_seq = target_tensor
+
+            if int(pred_seq.shape[2]) <= 1:
+                return None
+
+            pred_diff = pred_seq[:, :, 1:] - pred_seq[:, :, :-1]
+            target_diff = target_seq[:, :, 1:] - target_seq[:, :, :-1]
             diff_map = F.mse_loss(pred_diff, target_diff, reduction="none")
             if loss_weight is not None:
                 diff_map = diff_map * loss_weight.to(device=diff_map.device, dtype=diff_map.dtype)
@@ -948,11 +1006,27 @@ class RainTSNextFrameTrainer:
             event_map = torch.stack(per_threshold_maps, dim=0).mean(dim=0)
             return event_map, event_weight
 
-        pred_tensor = self._merge_modalities(pred["radar"], pred["satellite"], pred["rain"])
+        rain_residual_enabled, rain_residual_delta_weight, _, _ = self._resolve_rain_residual_cfg()
+        rain_residual_already_applied = bool(aux.get("rain_residual_already_applied", 0)) if aux is not None else False
+        rain_residual_ref = aux.get("rain_residual_ref") if aux is not None else None
+        pred_for_loss = dict(pred)
+        rain_delta_loss_map: torch.Tensor | None = None
+        if rain_residual_enabled and not rain_residual_already_applied:
+            if not torch.is_tensor(rain_residual_ref):
+                raise ValueError("train.loss.rain_residual.enabled=True requires aux['rain_residual_ref'].")
+            rain_ref = rain_residual_ref.to(device=pred["rain"].device, dtype=pred["rain"].dtype)
+            pred_for_loss["rain"] = self._apply_rain_residual_output(pred["rain"], rain_ref)
+            target_delta = target_gt["rain"] - rain_ref
+            rain_delta_loss_map = F.mse_loss(pred["rain"], target_delta, reduction="none")
+
+        pred_tensor = self._merge_modalities(pred_for_loss["radar"], pred_for_loss["satellite"], pred_for_loss["rain"])
         target_tensor = self._merge_modalities(target_gt["radar"], target_gt["satellite"], target_gt["rain"])
 
         loss_map = F.mse_loss(pred_tensor, target_tensor, reduction="none")
-        lw = self.train_cfg.loss_weights
+        lw_cfg = self.train_cfg.loss_weights
+        lw_radar = float(lw_cfg.radar) if loss_weight_override is None else float(loss_weight_override.get("radar", lw_cfg.radar))
+        lw_satellite = float(lw_cfg.satellite) if loss_weight_override is None else float(loss_weight_override.get("satellite", lw_cfg.satellite))
+        lw_rain = float(lw_cfg.rain) if loss_weight_override is None else float(loss_weight_override.get("rain", lw_cfg.rain))
         temporal_diff_enabled, temporal_diff_weight, temporal_diff_apply_on = resolve_temporal_diff_weight()
         temporal_diff_anchor = get_temporal_diff_anchor()
         radar_diff_anchor = temporal_diff_anchor["radar"] if temporal_diff_anchor is not None else None
@@ -966,18 +1040,27 @@ class RainTSNextFrameTrainer:
         if not sequence_loss_enabled:
             l_radar = loss_map[:, : self.radar_c].mean()
             l_satellite = loss_map[:, self.radar_c : self.radar_c + self.satellite_c].mean()
-            rain_loss_map, rain_weighted_enabled = build_rain_regression_loss_map(pred["rain"], target_gt["rain"])
+            rain_loss_map, rain_weighted_enabled = build_rain_regression_loss_map(
+                pred_for_loss["rain"], target_gt["rain"]
+            )
             l_rain = rain_loss_map.mean()
-            event_map, event_weight = build_rain_event_loss_map(pred["rain"], target_gt["rain"])
+            event_map, event_weight = build_rain_event_loss_map(pred_for_loss["rain"], target_gt["rain"])
             if event_map is None:
                 event_loss = torch.zeros((), device=loss_map.device, dtype=loss_map.dtype)
             else:
                 event_loss = event_weight * event_map.mean()
+            rain_delta_loss = (
+                torch.zeros((), device=loss_map.device, dtype=loss_map.dtype)
+                if rain_delta_loss_map is None
+                else rain_delta_loss_map.mean()
+            )
+            rain_delta_loss_weighted = rain_residual_delta_weight * rain_delta_loss
             loss = (
-                float(lw.radar) * l_radar
-                + float(lw.satellite) * l_satellite
-                + float(lw.rain) * l_rain
+                lw_radar * l_radar
+                + lw_satellite * l_satellite
+                + lw_rain * l_rain
                 + event_loss
+                + rain_delta_loss_weighted
             )
 
             zero = torch.zeros((), device=loss_map.device, dtype=loss_map.dtype)
@@ -988,12 +1071,12 @@ class RainTSNextFrameTrainer:
             diff_weighted = zero
             if temporal_diff_enabled and temporal_diff_weight > 0:
                 if temporal_diff_apply_on == "all":
-                    radar_diff_map = temporal_diff_mse_map(pred["radar"], target_gt["radar"], radar_diff_anchor)
+                    radar_diff_map = temporal_diff_mse_map(pred_for_loss["radar"], target_gt["radar"], radar_diff_anchor)
                     satellite_diff_map = temporal_diff_mse_map(
-                        pred["satellite"], target_gt["satellite"], satellite_diff_anchor
+                        pred_for_loss["satellite"], target_gt["satellite"], satellite_diff_anchor
                     )
                     rain_diff_map = temporal_diff_mse_map(
-                        pred["rain"], target_gt["rain"], rain_diff_anchor, rain_diff_weight_map
+                        pred_for_loss["rain"], target_gt["rain"], rain_diff_anchor, rain_diff_weight_map
                     )
                     if radar_diff_map is not None:
                         diff_radar = radar_diff_map.mean()
@@ -1002,13 +1085,13 @@ class RainTSNextFrameTrainer:
                     if rain_diff_map is not None:
                         diff_rain = rain_diff_map.mean()
                     diff_raw = (
-                        float(lw.radar) * diff_radar
-                        + float(lw.satellite) * diff_satellite
-                        + float(lw.rain) * diff_rain
+                        lw_radar * diff_radar
+                        + lw_satellite * diff_satellite
+                        + lw_rain * diff_rain
                     )
                 else:
                     rain_diff_map = temporal_diff_mse_map(
-                        pred["rain"], target_gt["rain"], rain_diff_anchor, rain_diff_weight_map
+                        pred_for_loss["rain"], target_gt["rain"], rain_diff_anchor, rain_diff_weight_map
                     )
                     if rain_diff_map is not None:
                         diff_rain = rain_diff_map.mean()
@@ -1040,6 +1123,10 @@ class RainTSNextFrameTrainer:
                 logs["loss/rain_weighted_reg"] = l_rain.detach()
             if event_map is not None:
                 logs["loss/rain_event"] = event_loss.detach()
+            if rain_residual_enabled:
+                logs["loss/rain_residual_delta"] = rain_delta_loss.detach()
+                logs["loss/rain_residual_delta_weighted"] = rain_delta_loss_weighted.detach()
+                logs["meta/rain_residual_enabled"] = torch.tensor(1.0, device=loss_map.device, dtype=loss_map.dtype)
             return loss, logs
 
         context_frames = int(aux.get("sequence_context_frames", 0))
@@ -1055,8 +1142,8 @@ class RainTSNextFrameTrainer:
 
         radar_map = loss_map[:, : self.radar_c]
         satellite_map = loss_map[:, self.radar_c : self.radar_c + self.satellite_c]
-        rain_map, rain_weighted_enabled = build_rain_regression_loss_map(pred["rain"], target_gt["rain"])
-        rain_event_map, event_weight = build_rain_event_loss_map(pred["rain"], target_gt["rain"])
+        rain_map, rain_weighted_enabled = build_rain_regression_loss_map(pred_for_loss["rain"], target_gt["rain"])
+        rain_event_map, event_weight = build_rain_event_loss_map(pred_for_loss["rain"], target_gt["rain"])
 
         l_radar, l_radar_context, l_radar_future = compute_weighted_segment_loss(
             radar_map, context_frames, future_frames, context_weight, future_weight
@@ -1078,7 +1165,16 @@ class RainTSNextFrameTrainer:
             rain_event = event_weight * rain_event
             rain_event_context = event_weight * rain_event_context
             rain_event_future = event_weight * rain_event_future
-        loss = float(lw.radar) * l_radar + float(lw.satellite) * l_satellite + float(lw.rain) * l_rain + rain_event
+        if rain_delta_loss_map is None:
+            rain_delta_loss = torch.zeros((), device=loss_map.device, dtype=loss_map.dtype)
+            rain_delta_loss_context = torch.zeros((), device=loss_map.device, dtype=loss_map.dtype)
+            rain_delta_loss_future = torch.zeros((), device=loss_map.device, dtype=loss_map.dtype)
+        else:
+            rain_delta_loss, rain_delta_loss_context, rain_delta_loss_future = compute_weighted_segment_loss(
+                rain_delta_loss_map, context_frames, future_frames, context_weight, future_weight
+            )
+        rain_delta_loss_weighted = rain_residual_delta_weight * rain_delta_loss
+        loss = lw_radar * l_radar + lw_satellite * l_satellite + lw_rain * l_rain + rain_event + rain_delta_loss_weighted
 
         zero = torch.zeros((), device=loss_map.device, dtype=loss_map.dtype)
         diff_radar = zero
@@ -1095,12 +1191,12 @@ class RainTSNextFrameTrainer:
                 diff_future_frames = max(future_frames, 0)
 
             if temporal_diff_apply_on == "all":
-                radar_diff_map = temporal_diff_mse_map(pred["radar"], target_gt["radar"], radar_diff_anchor)
+                radar_diff_map = temporal_diff_mse_map(pred_for_loss["radar"], target_gt["radar"], radar_diff_anchor)
                 satellite_diff_map = temporal_diff_mse_map(
-                    pred["satellite"], target_gt["satellite"], satellite_diff_anchor
+                    pred_for_loss["satellite"], target_gt["satellite"], satellite_diff_anchor
                 )
                 rain_diff_map = temporal_diff_mse_map(
-                    pred["rain"], target_gt["rain"], rain_diff_anchor, rain_diff_weight_map
+                    pred_for_loss["rain"], target_gt["rain"], rain_diff_anchor, rain_diff_weight_map
                 )
                 if radar_diff_map is not None and (diff_context_frames + diff_future_frames) > 0:
                     diff_radar, _, _ = compute_weighted_segment_loss(
@@ -1115,13 +1211,13 @@ class RainTSNextFrameTrainer:
                         rain_diff_map, diff_context_frames, diff_future_frames, context_weight, future_weight
                     )
                 diff_raw = (
-                    float(lw.radar) * diff_radar
-                    + float(lw.satellite) * diff_satellite
-                    + float(lw.rain) * diff_rain
+                    lw_radar * diff_radar
+                    + lw_satellite * diff_satellite
+                    + lw_rain * diff_rain
                 )
             else:
                 rain_diff_map = temporal_diff_mse_map(
-                    pred["rain"], target_gt["rain"], rain_diff_anchor, rain_diff_weight_map
+                    pred_for_loss["rain"], target_gt["rain"], rain_diff_anchor, rain_diff_weight_map
                 )
                 if rain_diff_map is not None and (diff_context_frames + diff_future_frames) > 0:
                     diff_rain, _, _ = compute_weighted_segment_loss(
@@ -1162,6 +1258,12 @@ class RainTSNextFrameTrainer:
             logs["loss/rain_event"] = rain_event.detach()
             logs["loss/rain_event_context"] = rain_event_context.detach()
             logs["loss/rain_event_future"] = rain_event_future.detach()
+        if rain_residual_enabled:
+            logs["loss/rain_residual_delta"] = rain_delta_loss.detach()
+            logs["loss/rain_residual_delta_context"] = rain_delta_loss_context.detach()
+            logs["loss/rain_residual_delta_future"] = rain_delta_loss_future.detach()
+            logs["loss/rain_residual_delta_weighted"] = rain_delta_loss_weighted.detach()
+            logs["meta/rain_residual_enabled"] = torch.tensor(1.0, device=loss_map.device, dtype=loss_map.dtype)
         return loss, logs
 
     def train_step(self, batch: dict[str, torch.Tensor]) -> tuple[dict[str, torch.Tensor], bool]:
@@ -1189,8 +1291,12 @@ class RainTSNextFrameTrainer:
                     **forward_kwargs,
                 )
                 rec_loss, logs = self._next_prediction_loss(pred=pred, target_gt=target_gt, aux=aux)
+                rollout_branch_loss, rollout_logs = self._train_rollout_branch_loss(batch)
 
             total_g_loss = rec_loss
+            if rollout_branch_loss is not None:
+                total_g_loss = total_g_loss + rollout_branch_loss
+                logs.update(rollout_logs)
             if self.use_gan:
                 if self.discriminator is None or self.disc_optim is None or self.disc_sched is None:
                     raise ValueError("GAN is enabled but discriminator states are not initialized.")
@@ -1269,7 +1375,12 @@ class RainTSNextFrameTrainer:
                 self.ema_model.update()
             self.global_step += 1
 
-        logs["loss/rec"] = rec_loss.detach()
+        logs["loss/rec_teacher_forced"] = rec_loss.detach()
+        if "loss/rollout_branch" not in logs:
+            logs["loss/rollout_branch"] = torch.zeros((), device=self.device)
+            logs["loss/rollout_branch_raw"] = torch.zeros((), device=self.device)
+            logs["meta/rollout_branch_weight"] = torch.zeros((), device=self.device)
+        logs["loss/rec"] = (rec_loss.detach() + logs["loss/rollout_branch"])
         logs["loss"] = total_g_loss.detach()
         logs["meta/target_mode"] = torch.tensor(
             {"next_frame": 0.0, "block": 1.0}[str(aux["target_mode"])], device=self.device
@@ -1279,6 +1390,10 @@ class RainTSNextFrameTrainer:
         logs["meta/sequence_loss"] = torch.tensor(float(aux["sequence_loss_enabled"]), device=self.device)
         logs["meta/sequence_context_frames"] = torch.tensor(float(aux["sequence_context_frames"]), device=self.device)
         logs["meta/sequence_future_frames"] = torch.tensor(float(aux["sequence_future_frames"]), device=self.device)
+        logs["meta/rollout_branch_enabled"] = torch.tensor(
+            1.0 if bool(self.train_cfg.next_pred.get("rollout_branch", {}).get("enabled", False)) else 0.0,
+            device=self.device,
+        )
         logs["meta/gan_enabled"] = torch.tensor(1.0 if self.use_gan else 0.0, device=self.device)
         return logs, did_step
 
@@ -1374,6 +1489,66 @@ class RainTSNextFrameTrainer:
                 )
         return context, target, context_time, target_time
 
+    def _resolve_train_rollout_branch(self, total_future_frames: int) -> dict[str, float | int | bool | str] | None:
+        rollout_cfg = self.train_cfg.next_pred.get("rollout_branch", {})
+        if not bool(rollout_cfg.get("enabled", False)):
+            return None
+        if total_future_frames <= 0:
+            raise ValueError(f"total_future_frames must be > 0, got {total_future_frames}")
+
+        mode = str(rollout_cfg.get("mode", "block")).lower()
+        if mode not in {"frame", "block"}:
+            raise ValueError(f"train.next_pred.rollout_branch.mode must be 'frame' or 'block', got {mode}")
+
+        weight = float(rollout_cfg.get("weight", 0.0))
+        if weight < 0:
+            raise ValueError(f"train.next_pred.rollout_branch.weight must be >= 0, got {weight}")
+        if weight == 0:
+            return None
+
+        configured_frames = rollout_cfg.get("rollout_frames", None)
+        rollout_frames = total_future_frames if configured_frames in (None, "") else int(configured_frames)
+        if rollout_frames <= 0:
+            raise ValueError(f"train.next_pred.rollout_branch.rollout_frames must be > 0, got {rollout_frames}")
+        if rollout_frames > total_future_frames:
+            raise ValueError(
+                "train.next_pred.rollout_branch.rollout_frames cannot exceed available future frames, "
+                f"got rollout_frames={rollout_frames}, total_future_frames={total_future_frames}"
+            )
+
+        default_block_size = int(self.train_cfg.next_pred.get("block_size", 1))
+        rollout_block_size = int(rollout_cfg.get("rollout_block_size", default_block_size))
+        if rollout_block_size <= 0:
+            raise ValueError(
+                f"train.next_pred.rollout_branch.rollout_block_size must be > 0, got {rollout_block_size}"
+            )
+
+        loss_on = str(rollout_cfg.get("loss_on", "rain")).lower()
+        if loss_on not in {"rain", "all"}:
+            raise ValueError(f"train.next_pred.rollout_branch.loss_on must be 'rain' or 'all', got {loss_on}")
+
+        delta_loss_cfg = rollout_cfg.get("delta_loss", {})
+        delta_loss_enabled = bool(delta_loss_cfg.get("enabled", False))
+        delta_loss_weight = float(delta_loss_cfg.get("weight", 1.0))
+        if delta_loss_weight < 0:
+            raise ValueError(
+                "train.next_pred.rollout_branch.delta_loss.weight must be >= 0, "
+                f"got {delta_loss_weight}"
+            )
+
+        return {
+            "mode": mode,
+            "weight": weight,
+            "rollout_frames": rollout_frames,
+            "rollout_block_size": rollout_block_size,
+            "detach_history": bool(rollout_cfg.get("detach_history", True)),
+            "use_gt_future_modalities": bool(rollout_cfg.get("use_gt_future_modalities", True)),
+            "loss_on": loss_on,
+            "delta_loss_enabled": delta_loss_enabled,
+            "delta_loss_weight": delta_loss_weight,
+        }
+
+
     def _resolve_rollout_mode(self) -> tuple[str, int, bool, bool]:
         mode = str(self.val_cfg.get("rollout_mode", "block")).lower()
         if mode not in {"frame", "block"}:
@@ -1386,7 +1561,6 @@ class RainTSNextFrameTrainer:
         use_gt_future_modalities = bool(self.val_cfg.get("rollout_use_gt_future_modalities", False))
         return mode, rollout_block_size, rollout_history_detach, use_gt_future_modalities
 
-    @torch.no_grad()
     def _build_self_rolled_seed(
         self,
         context: torch.Tensor,
@@ -1447,6 +1621,10 @@ class RainTSNextFrameTrainer:
                     forward_kwargs["context_time"] = context_time_cur
                     forward_kwargs["target_time"] = context_time_cur[:, -frame_patch_size:]
                 pred_one = self.model.forward_ar(**forward_kwargs)
+            if self._resolve_rain_residual_cfg()[0]:
+                seed_modalities = self._split_modalities(seed_list[-1])
+                pred_one = dict(pred_one)
+                pred_one["rain"] = self._apply_rain_residual_output(pred_one["rain"], seed_modalities["rain"])
             pred_one_tensor = self._merge_modalities(pred_one["radar"], pred_one["satellite"], pred_one["rain"])
             pred_hist = pred_one_tensor.detach() if detach_history else pred_one_tensor
             if future_modality_forcing is not None:
@@ -1469,7 +1647,6 @@ class RainTSNextFrameTrainer:
 
         return torch.cat(seed_list, dim=2)
 
-    @torch.no_grad()
     def _rollout_predict_with_settings(
         self,
         context: torch.Tensor,
@@ -1481,6 +1658,7 @@ class RainTSNextFrameTrainer:
         future_time: torch.Tensor | None = None,
         future_modalities: dict[str, torch.Tensor] | None = None,
         use_gt_future_modalities: bool = False,
+        return_rain_delta: bool = False,
     ) -> dict[str, torch.Tensor]:
         if context.ndim != 5:
             raise ValueError(f"context must be [B,C,T,H,W], got {tuple(context.shape)}")
@@ -1555,6 +1733,7 @@ class RainTSNextFrameTrainer:
         pred_radar: list[torch.Tensor] = []
         pred_satellite: list[torch.Tensor] = []
         pred_rain: list[torch.Tensor] = []
+        pred_rain_delta: list[torch.Tensor] = []
 
         while remaining > 0:
             if mode == "frame":
@@ -1600,9 +1779,15 @@ class RainTSNextFrameTrainer:
                     forward_kwargs["context_time"] = context_time_cur
                     forward_kwargs["target_time"] = target_seed_time
                 pred_block = self.model.forward_ar(**forward_kwargs)
+            raw_rain_delta = pred_block["rain"]
+            if self._resolve_rain_residual_cfg()[0]:
+                seed_modalities = self._split_modalities(seed_block)
+                pred_block = dict(pred_block)
+                pred_block["rain"] = self._apply_rain_residual_output(pred_block["rain"], seed_modalities["rain"])
             pred_radar.append(pred_block["radar"])
             pred_satellite.append(pred_block["satellite"])
             pred_rain.append(pred_block["rain"])
+            pred_rain_delta.append(raw_rain_delta)
 
             pred_block_tensor = self._merge_modalities(pred_block["radar"], pred_block["satellite"], pred_block["rain"])
             pred_hist = pred_block_tensor.detach() if detach_history else pred_block_tensor
@@ -1623,13 +1808,15 @@ class RainTSNextFrameTrainer:
             produced += chunk
             remaining -= chunk
 
-        return {
+        output = {
             "radar": torch.cat(pred_radar, dim=2),
             "satellite": torch.cat(pred_satellite, dim=2),
             "rain": torch.cat(pred_rain, dim=2),
         }
+        if return_rain_delta:
+            output["rain_delta"] = torch.cat(pred_rain_delta, dim=2)
+        return output
 
-    @torch.no_grad()
     def _rollout_predict(
         self,
         context: torch.Tensor,
@@ -1649,7 +1836,104 @@ class RainTSNextFrameTrainer:
             future_time=future_time,
             future_modalities=future_modalities,
             use_gt_future_modalities=use_gt_future_modalities,
+            return_rain_delta=False,
         )
+
+    def _train_rollout_branch_loss(
+        self,
+        batch: dict[str, torch.Tensor],
+    ) -> tuple[torch.Tensor | None, dict[str, torch.Tensor]]:
+        context, target, context_time, target_time = self._prepare_val_inference_batch(batch)
+        total_future_frames = int(target["rain"].shape[2])
+        rollout_branch_cfg = self._resolve_train_rollout_branch(total_future_frames=total_future_frames)
+        if rollout_branch_cfg is None:
+            return None, {}
+
+        rollout_frames = int(rollout_branch_cfg["rollout_frames"])
+        target_slice = {
+            "radar": target["radar"][:, :, :rollout_frames],
+            "satellite": target["satellite"][:, :, :rollout_frames],
+            "rain": target["rain"][:, :, :rollout_frames],
+        }
+        target_time_slice = None if target_time is None else target_time[:, :rollout_frames]
+        pred_rollout = self._rollout_predict_with_settings(
+            context=context,
+            total_future_frames=rollout_frames,
+            mode=str(rollout_branch_cfg["mode"]),
+            rollout_block_size=int(rollout_branch_cfg["rollout_block_size"]),
+            detach_history=bool(rollout_branch_cfg["detach_history"]),
+            context_time=context_time,
+            future_time=target_time_slice,
+            future_modalities=target_slice,
+            use_gt_future_modalities=bool(rollout_branch_cfg["use_gt_future_modalities"]),
+            return_rain_delta=True,
+        )
+
+        loss_weight_override = None
+        if str(rollout_branch_cfg["loss_on"]) == "rain":
+            loss_weight_override = {"radar": 0.0, "satellite": 0.0, "rain": 1.0}
+
+        aux = {
+            "target_mode": "rollout_branch",
+            "target_frames": rollout_frames,
+            "context_frames": int(context.shape[2]),
+            "sequence_loss_enabled": 0,
+            "sequence_context_frames": 0,
+            "sequence_future_frames": rollout_frames,
+            "sequence_context_weight": 1.0,
+            "sequence_future_weight": 1.0,
+            "temporal_diff_anchor": self._split_modalities(context[:, :, -1:]),
+            "rain_residual_already_applied": 1,
+        }
+        rollout_raw_loss, rollout_inner_logs = self._next_prediction_loss(
+            pred=pred_rollout,
+            target_gt=target_slice,
+            aux=aux,
+            loss_weight_override=loss_weight_override,
+        )
+        delta_loss_enabled = bool(rollout_branch_cfg["delta_loss_enabled"])
+        delta_loss_weight = float(rollout_branch_cfg["delta_loss_weight"])
+        rollout_delta_loss = torch.zeros((), device=rollout_raw_loss.device, dtype=rollout_raw_loss.dtype)
+        rollout_delta_loss_weighted = rollout_delta_loss
+        delta_mean_ratio = torch.zeros((), device=rollout_raw_loss.device, dtype=rollout_raw_loss.dtype)
+        pred_delta_abs_mean = torch.zeros((), device=rollout_raw_loss.device, dtype=rollout_raw_loss.dtype)
+        gt_delta_abs_mean = torch.zeros((), device=rollout_raw_loss.device, dtype=rollout_raw_loss.dtype)
+        if delta_loss_enabled and delta_loss_weight > 0:
+            if "rain_delta" not in pred_rollout:
+                raise ValueError("rollout_branch.delta_loss.enabled=True requires rollout prediction to include rain_delta.")
+            gt_delta_ref = torch.cat([context[:, -self.rain_c :, -1:], target_slice["rain"][:, :, :-1]], dim=2)
+            gt_delta = target_slice["rain"] - gt_delta_ref
+            pred_delta = pred_rollout["rain_delta"].to(device=gt_delta.device, dtype=gt_delta.dtype)
+            rollout_delta_loss = F.mse_loss(pred_delta, gt_delta)
+            rollout_delta_loss_weighted = delta_loss_weight * rollout_delta_loss
+            rollout_raw_loss = rollout_raw_loss + rollout_delta_loss_weighted
+            pred_delta_abs_mean = pred_delta.abs().mean()
+            gt_delta_abs_mean = gt_delta.abs().mean()
+            delta_mean_ratio = pred_delta_abs_mean / gt_delta_abs_mean.clamp_min(1.0e-8)
+
+        rollout_weight = float(rollout_branch_cfg["weight"])
+        rollout_scaled_loss = rollout_raw_loss * rollout_weight
+
+        logs = {
+            "loss/rollout_branch_raw": rollout_raw_loss.detach(),
+            "loss/rollout_branch": rollout_scaled_loss.detach(),
+            "loss/rollout_branch_delta": rollout_delta_loss.detach(),
+            "loss/rollout_branch_delta_weighted_inner": rollout_delta_loss_weighted.detach(),
+            "meta/rollout_branch_weight": torch.tensor(
+                rollout_weight, device=rollout_raw_loss.device, dtype=rollout_raw_loss.dtype
+            ),
+            "meta/rollout_branch_delta_loss_weight": torch.tensor(
+                delta_loss_weight, device=rollout_raw_loss.device, dtype=rollout_raw_loss.dtype
+            ),
+            "meta/rollout_branch_pred_delta_abs_mean": pred_delta_abs_mean.detach(),
+            "meta/rollout_branch_gt_delta_abs_mean": gt_delta_abs_mean.detach(),
+            "meta/rollout_branch_delta_mean_ratio": delta_mean_ratio.detach(),
+        }
+        for key, value in rollout_inner_logs.items():
+            if key == "loss":
+                continue
+            logs[f"rollout/{key}"] = value.detach()
+        return rollout_scaled_loss, logs
 
     @torch.no_grad()
     def _predict_next_after_roll_block(
@@ -1917,7 +2201,10 @@ class RainTSNextFrameTrainer:
         viz_dir = self.proj_dir / "val_viz" / f"step_{self.global_step:08d}"
         viz_dir.mkdir(parents=True, exist_ok=True)
         context_cpu = self._split_modalities(context.detach().float().cpu().clamp_min(0.0))
-        pred_cpu = {k: v.detach().float().cpu().clamp_min(0.0) for k, v in pred_target.items()}
+        pred_cpu = {
+            k: pred_target[k].detach().float().cpu().clamp_min(0.0)
+            for k in ("radar", "satellite", "rain")
+        }
         gt_cpu = {k: v.detach().float().cpu().clamp_min(0.0) for k, v in target.items()}
 
         batch_size = int(pred_cpu["rain"].shape[0])
@@ -2211,7 +2498,9 @@ class RainTSNextFrameTrainer:
 
 @hydra.main(
     config_path="../config/ts_rain_train",
-    config_name="rain_trainer_ts_next_frame",
+    #config_name="rain_trainer_ts_next_frame",
+    config_name="rain_trainer_ts_next_frame_delta_filter",
+
     version_base=None,
 )
 def main(cfg: DictConfig) -> None:

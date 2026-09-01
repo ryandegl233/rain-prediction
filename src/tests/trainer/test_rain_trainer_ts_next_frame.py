@@ -237,6 +237,43 @@ def test_next_prediction_loss_runs() -> None:
     assert set(logs.keys()) == {"loss", "loss/radar", "loss/satellite", "loss/rain"}
 
 
+def test_rain_residual_loss_interprets_rain_output_as_delta() -> None:
+    trainer = _make_trainer_for_batch(target_mode="next_frame", block_size=1)
+    trainer.train_cfg.loss = {
+        "mode": "mse",
+        "rain_residual": {
+            "enabled": True,
+            "delta_weight": 0.5,
+            "clamp_output": False,
+            "min_value": 0.0,
+        },
+        "temporal_diff": {"enabled": False},
+        "rain_region_weight": {"enabled": False},
+        "rain_event_aux": {"enabled": False},
+    }
+    pred = {
+        "radar": torch.zeros(1, 1, 1, 1, 1),
+        "satellite": torch.zeros(1, 10, 1, 1, 1),
+        "rain": torch.tensor([[[[[2.0]]]]]),
+    }
+    target = {
+        "radar": torch.zeros(1, 1, 1, 1, 1),
+        "satellite": torch.zeros(1, 10, 1, 1, 1),
+        "rain": torch.tensor([[[[[13.0]]]]]),
+    }
+    aux = {
+        "sequence_loss_enabled": 0,
+        "rain_residual_ref": torch.tensor([[[[[10.0]]]]]),
+    }
+
+    loss, logs = trainer._next_prediction_loss(pred=pred, target_gt=target, aux=aux)
+
+    assert float(logs["loss/rain"].item()) == pytest.approx(1.0, abs=1e-6)
+    assert float(logs["loss/rain_residual_delta"].item()) == pytest.approx(1.0, abs=1e-6)
+    assert float(logs["loss/rain_residual_delta_weighted"].item()) == pytest.approx(0.5, abs=1e-6)
+    assert float(loss.item()) == pytest.approx(1.5, abs=1e-6)
+
+
 def test_rain_weighted_loss_can_exceed_plain_mse() -> None:
     trainer_mse = _make_trainer_for_batch(target_mode="next_frame", block_size=1)
     trainer_enhanced = _make_trainer_for_batch(target_mode="next_frame", block_size=1)
@@ -401,6 +438,26 @@ def test_rollout_uses_autoregressive_predictions_block_mode() -> None:
     assert torch.allclose(pred["radar"][:, :, 2], torch.ones(1, 1, 4, 4) * 3.0)
 
 
+def test_rollout_applies_rain_residual_before_history_update() -> None:
+    trainer = _make_rollout_trainer(mode="block", block_size=1)
+    trainer.train_cfg.loss = {
+        "mode": "mse",
+        "rain_residual": {
+            "enabled": True,
+            "delta_weight": 0.0,
+            "clamp_output": False,
+            "min_value": 0.0,
+        },
+        "temporal_diff": {"enabled": False},
+    }
+    context = torch.zeros(1, 12, 2, 4, 4)
+
+    pred = trainer._rollout_predict(context=context, total_future_frames=2)
+
+    assert torch.allclose(pred["rain"][:, :, 0], torch.ones(1, 1, 4, 4) * 1.0)
+    assert torch.allclose(pred["rain"][:, :, 1], torch.ones(1, 1, 4, 4) * 3.0)
+
+
 def test_rollout_with_time_passes_time_to_model() -> None:
     trainer = _make_rollout_trainer(mode="block", block_size=2)
     model = DummyARModelTimeProbe()
@@ -498,6 +555,41 @@ def test_val_inference_after_roll_next_loss_exists_when_enabled() -> None:
     assert torch.isfinite(infer_loss)
     assert "val/infer_after_roll_next_loss" in extra_logs
     assert torch.isfinite(extra_logs["val/infer_after_roll_next_loss"])
+
+
+def test_train_step_rollout_branch_adds_aux_loss() -> None:
+    trainer = _make_trainer_for_batch(target_mode="block", block_size=1)
+    trainer.accelerator = DummyAccelerator()
+    trainer.model = DummyTrainModel()
+    trainer.optim = torch.optim.Adam(trainer.model.parameters(), lr=1e-3)
+    trainer.sched = torch.optim.lr_scheduler.LambdaLR(trainer.optim, lr_lambda=lambda _step: 1.0)
+    trainer.use_gan = False
+    trainer.gan_cfg = OmegaConf.create({})
+    trainer.ema_model = None
+    trainer.global_step = 0
+    trainer.train_cfg.next_pred.rollout_branch = {
+        "enabled": True,
+        "weight": 0.5,
+        "mode": "block",
+        "rollout_block_size": 1,
+        "rollout_frames": 2,
+        "detach_history": True,
+        "use_gt_future_modalities": True,
+        "loss_on": "rain",
+    }
+
+    batch = _make_batch(batch=1, n_past=2, n_future=2)
+    logs, did_step = trainer.train_step(batch)
+
+    assert did_step
+    assert float(logs["meta/rollout_branch_enabled"].item()) == 1.0
+    assert float(logs["meta/rollout_branch_weight"].item()) == 0.5
+    assert "loss/rollout_branch" in logs
+    assert "loss/rollout_branch_raw" in logs
+    assert "rollout/loss/rain" in logs
+    assert torch.isfinite(logs["loss/rollout_branch"])
+    assert float(logs["loss/rollout_branch"].item()) > 0.0
+    assert torch.allclose(logs["loss/rec"], logs["loss/rec_teacher_forced"] + logs["loss/rollout_branch"])
 
 
 def test_train_step_with_gan_enabled_outputs_gan_logs() -> None:
@@ -615,7 +707,7 @@ def test_temporal_diff_uses_anchor_for_single_target_frame() -> None:
     assert float(logs["loss/rain_diff"].item()) == pytest.approx(1.0, abs=1e-6)
 
 
-def test_temporal_diff_matches_mse_when_using_first_target_frame_reference() -> None:
+def test_temporal_diff_matches_stepwise_differences_with_anchor() -> None:
     trainer = _make_trainer_for_batch(target_mode="block", block_size=2)
     trainer.train_cfg.loss = {
         "mode": "mse",
@@ -649,7 +741,9 @@ def test_temporal_diff_matches_mse_when_using_first_target_frame_reference() -> 
 
     _loss, logs = trainer._next_prediction_loss(pred=pred, target_gt=target, aux=aux)
 
-    expected = torch.mean((pred["rain"] - target["rain"]).pow(2))
+    pred_seq = torch.cat([aux["temporal_diff_anchor"]["rain"], pred["rain"]], dim=2)
+    target_seq = torch.cat([aux["temporal_diff_anchor"]["rain"], target["rain"]], dim=2)
+    expected = torch.mean(((pred_seq[:, :, 1:] - pred_seq[:, :, :-1]) - (target_seq[:, :, 1:] - target_seq[:, :, :-1])).pow(2))
     assert float(logs["loss/rain_diff"].item()) == pytest.approx(float(expected.item()), abs=1e-6)
 
 
@@ -752,3 +846,43 @@ def test_log_tensorboard_scalars_writes_scalars() -> None:
 
     assert trainer.tensorboard_writer.records == [("train/loss", 1.25, 7), ("lr", 0.0003, 7)]
     assert trainer.tensorboard_writer.flushed is True
+
+from types import SimpleNamespace
+
+
+def test_resolve_project_dir_prefers_hydra_runtime(monkeypatch, tmp_path) -> None:
+    trainer = object.__new__(RainTSNextFrameTrainer)
+    trainer.train_cfg = OmegaConf.create(
+        {
+            "proj_dir": "runs/time_series_next_frame_new",
+            "log": {
+                "run_comment": "stage1_next_frame_block_new",
+                "log_with_time": True,
+            },
+        }
+    )
+    hydra_output_dir = tmp_path / "runs" / "time_series_next_frame_new" / "2026-07-11" / "10-30-00_stage1"
+    hydra_cfg = SimpleNamespace(runtime=SimpleNamespace(output_dir=str(hydra_output_dir)))
+    monkeypatch.setattr("src.trainer.rain_trainer_ts_next_frame.HydraConfig.get", lambda: hydra_cfg)
+
+    resolved_dir = trainer._resolve_project_dir()
+
+    assert resolved_dir == hydra_output_dir
+
+
+def test_resolve_project_dir_falls_back_to_proj_dir_without_hydra(monkeypatch) -> None:
+    trainer = object.__new__(RainTSNextFrameTrainer)
+    trainer.train_cfg = OmegaConf.create(
+        {
+            "proj_dir": "runs/time_series_next_frame_new",
+            "log": {
+                "run_comment": "stage1_next_frame_block_new",
+                "log_with_time": False,
+            },
+        }
+    )
+    monkeypatch.setattr("src.trainer.rain_trainer_ts_next_frame.HydraConfig.get", lambda: (_ for _ in ()).throw(ValueError))
+
+    resolved_dir = trainer._resolve_project_dir()
+
+    assert resolved_dir.as_posix() == "runs/time_series_next_frame_new_stage1_next_frame_block_new"
