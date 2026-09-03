@@ -16,5 +16,6 @@ train:
     run_comment: gated_modality_rain_trainer
 
 rain_prediction_model:
+  _target_: src.gated_modality_rain.model.GatedModalityRainModel
   spatial_modality_gate_enabled: true
   spatial_modality_gate_hidden_channels: 32

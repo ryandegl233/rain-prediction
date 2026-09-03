@@ -12,7 +12,8 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from safetensors.torch import save_file
 
-from src.tests.time_series.test_spatial_modality_gate import build_model
+from src.gated_modality_rain.trainer import GatedModalityRainTrainer
+from src.tests.time_series.test_spatial_modality_gate import build_baseline_model, build_model
 from src.trainer.rain_trainer_ts_next_frame import RainTSNextFrameTrainer
 
 
@@ -46,7 +47,11 @@ def test_fixed_origin_configs_preserve_baseline_training_contract() -> None:
     assert gated.rain_prediction_model.spatial_modality_gate_enabled is True
     assert gated.rain_prediction_model.spatial_modality_gate_hidden_channels == 32
     expected_model = OmegaConf.to_container(fixed.rain_prediction_model, resolve=True)
-    expected_model.update(spatial_modality_gate_enabled=True, spatial_modality_gate_hidden_channels=32)
+    expected_model.update(
+        _target_="src.gated_modality_rain.model.GatedModalityRainModel",
+        spatial_modality_gate_enabled=True,
+        spatial_modality_gate_hidden_channels=32,
+    )
     assert OmegaConf.to_container(gated.rain_prediction_model, resolve=True) == expected_model
     assert fixed.hydra.run.dir != gated.hydra.run.dir
     for cfg, name in ((fixed, "next_frame_fixed_origin"), (gated, "gated_modality_rain_trainer")):
@@ -111,7 +116,7 @@ def test_checked_initialization_loads_complete_weights(
 ) -> None:
     from src.utils.gated_checkpoint import load_gated_model_initialization
 
-    source = build_model(spatial_modality_gate_enabled=source_gated).eval()
+    source = (build_model(spatial_modality_gate_enabled=True) if source_gated else build_baseline_model()).eval()
     if source_gated:
         with torch.no_grad():
             source.spatial_modality_gate.net[-1].bias.fill_(0.25)
@@ -177,31 +182,34 @@ def test_trainer_rejects_incomplete_gated_initialization(tmp_path: Path, monkeyp
             return build_model(spatial_modality_gate_enabled=True)
         return instantiate(config)
 
-    def configure_local_logger(self: RainTSNextFrameTrainer) -> Path:
+    def configure_local_logger(self: GatedModalityRainTrainer) -> Path:
         self.proj_dir = tmp_path
         return tmp_path / "unused.log"
 
-    monkeypatch.setattr("src.trainer.rain_trainer_ts_next_frame.hydra.utils.instantiate", instantiate_local)
-    monkeypatch.setattr(RainTSNextFrameTrainer, "_configure_logger", configure_local_logger)
-    monkeypatch.setattr(RainTSNextFrameTrainer, "log_msg", lambda *args: None)
-    monkeypatch.setattr(RainTSNextFrameTrainer, "_init_rain_norm_params", lambda self: None)
+    monkeypatch.setattr("src.gated_modality_rain.trainer.hydra.utils.instantiate", instantiate_local)
+    monkeypatch.setattr(GatedModalityRainTrainer, "_configure_logger", configure_local_logger)
+    monkeypatch.setattr(GatedModalityRainTrainer, "log_msg", lambda *args: None)
+    monkeypatch.setattr(GatedModalityRainTrainer, "_init_rain_norm_params", lambda self: None)
     with pytest.raises(ValueError, match="checkpoint|Checkpoint"):
-        RainTSNextFrameTrainer(cfg)
+        GatedModalityRainTrainer(cfg)
 
 
 @pytest.mark.parametrize("config_name", ["rain_trainer_ts_next_frame_fixed_origin", "gated_modality_rain_trainer"])
 @pytest.mark.parametrize("settings_source", ["train", "val"])
 def test_fixed_origin_rollout_ignores_future_labels(config_name: str, settings_source: str) -> None:
     cfg = compose_config(config_name)
-    trainer = object.__new__(RainTSNextFrameTrainer)
+    trainer_class = RainTSNextFrameTrainer if config_name.endswith("fixed_origin") else GatedModalityRainTrainer
+    trainer = object.__new__(trainer_class)
     trainer.train_cfg = cfg.train
     trainer.val_cfg = cfg.val
     trainer.radar_c, trainer.satellite_c, trainer.rain_c = 1, 10, 1
     trainer.accelerator = Accelerator(cpu=True)
-    trainer.model = build_model(
-        spatial_modality_gate_enabled=cfg.rain_prediction_model.get("spatial_modality_gate_enabled", False)
+    trainer.model = (
+        build_baseline_model()
+        if config_name.endswith("fixed_origin")
+        else build_model(spatial_modality_gate_enabled=cfg.rain_prediction_model.spatial_modality_gate_enabled)
     ).eval()
-    if trainer.model.spatial_modality_gate is not None:
+    if getattr(trainer.model, "spatial_modality_gate", None) is not None:
         with torch.no_grad():
             trainer.model.spatial_modality_gate.net[-1].bias.copy_(torch.tensor([0.2, -0.3]))
     context = torch.randn(1, 12, 4, 16, 16)

@@ -23,6 +23,30 @@ def _valid_gn_groups(channels: int, max_groups: int = 32) -> int:
     return 1
 
 
+class _SpatialModalityGate(nn.Module):
+    def __init__(self, channels: int, hidden_channels: int) -> None:
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Conv2d(3 * channels, hidden_channels, 1),
+            nn.SiLU(),
+            nn.Conv2d(hidden_channels, hidden_channels, 3, padding=1, groups=hidden_channels),
+            nn.SiLU(),
+            nn.Conv2d(hidden_channels, 2, 1),
+        )
+        nn.init.zeros_(self.net[-1].weight)
+        nn.init.zeros_(self.net[-1].bias)
+
+    def forward(
+        self, z_radar: torch.Tensor, z_satellite: torch.Tensor, z_rain: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        features = torch.cat([z_radar, z_satellite, z_rain], dim=1)
+        b, _, t, _, _ = features.shape
+        features = rearrange(features, "b d t h w -> (b t) d h w")
+        logits = rearrange(self.net(features), "(b t) d h w -> b d t h w", b=b, t=t)
+        gates = 1 + torch.tanh(logits)
+        return gates[:, :1], gates[:, 1:2]
+
+
 class _CrossModalConditioner(nn.Module):
     def __init__(
         self,
@@ -267,7 +291,7 @@ class _LightweightResNetEncoder3D(nn.Module):
         return x
 
 
-class RainCausalPatchTransformerNextFrame(nn.Module):
+class GatedModalityRainModel(nn.Module):
     """
     Time-series next-frame / next-block prediction backbone.
 
@@ -321,11 +345,29 @@ class RainCausalPatchTransformerNextFrame(nn.Module):
         local_window_refiner_enabled: bool = False,
         local_window_size: int = 7,
         local_window_heads: int | None = None,
+        spatial_modality_gate_enabled: bool = False,
+        spatial_modality_gate_hidden_channels: int = 32,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
         if rain_out_channels is None:
             rain_out_channels = 1 if out_channels is None else out_channels
+
+        if spatial_modality_gate_enabled:
+            if str(encoder_type).lower() != "patch":
+                raise ValueError("spatial modality gate requires encoder_type='patch'")
+            if frame_patch_size != 1:
+                raise ValueError("spatial modality gate requires frame_patch_size=1")
+            if spatial_modality_gate_hidden_channels <= 0:
+                raise ValueError("spatial_modality_gate_hidden_channels must be > 0")
+            modality_channels = (radar_out_channels, satellite_out_channels, rain_out_channels)
+            if any(channels <= 0 for channels in modality_channels):
+                raise ValueError("spatial modality gate requires positive radar/satellite/rain channels")
+            if sum(modality_channels) != in_channels:
+                raise ValueError(
+                    "spatial modality gate requires in_channels == "
+                    "radar_out_channels + satellite_out_channels + rain_out_channels"
+                )
 
         self.radar_out_channels = radar_out_channels
         self.satellite_out_channels = satellite_out_channels
@@ -589,6 +631,9 @@ class RainCausalPatchTransformerNextFrame(nn.Module):
             )
 
         self._init_weights()
+        self.spatial_modality_gate: _SpatialModalityGate | None = None
+        if spatial_modality_gate_enabled:
+            self.spatial_modality_gate = _SpatialModalityGate(stem_channels, spatial_modality_gate_hidden_channels)
 
     def _init_weights(self) -> None:
         nn.init.trunc_normal_(self.spatial_pos_embed, std=0.02)
@@ -628,6 +673,25 @@ class RainCausalPatchTransformerNextFrame(nn.Module):
             if self.patch_embed is None or self.stem is None:
                 raise RuntimeError("patch encoder is not initialized.")
             encoded = self.patch_embed(x)
+            if self.spatial_modality_gate is not None:
+                modality_contributions: list[torch.Tensor] = []
+                channel_start = 0
+                for channels in self.modality_channels.values():
+                    channel_end = channel_start + channels
+                    modality_contributions.append(
+                        F.conv3d(
+                            x[:, channel_start:channel_end],
+                            self.patch_embed.weight[:, channel_start:channel_end],
+                            bias=None,
+                            stride=self.patch_embed.stride,
+                            padding=self.patch_embed.padding,
+                            dilation=self.patch_embed.dilation,
+                        )
+                    )
+                    channel_start = channel_end
+                z_radar, z_satellite, z_rain = modality_contributions
+                gate_radar, gate_satellite = self.spatial_modality_gate(z_radar, z_satellite, z_rain)
+                encoded = encoded + (gate_radar - 1) * z_radar + (gate_satellite - 1) * z_satellite
             _, _, tp, hp, wp = encoded.shape
             encoded = rearrange(encoded, "b d tp hp wp -> (b tp) d hp wp")
             encoded = self.stem(encoded)
@@ -963,25 +1027,3 @@ class RainCausalPatchTransformerNextFrame(nn.Module):
             strict_target_isolation=strict_target_isolation,
             return_modality_dict=return_modality_dict,
         )
-
-
-if __name__ == "__main__":
-    model = RainCausalPatchTransformerNextFrame(
-        in_channels=12,
-        out_channels=1,
-        radar_out_channels=1,
-        satellite_out_channels=10,
-        rain_out_channels=1,
-        input_size=64,
-        patch_size=4,
-        dim=128,
-        depth=2,
-        num_heads=4,
-        max_frames=16,
-    )
-    x = torch.randn(2, 12, 6, 64, 64)
-    with torch.no_grad():
-        out = model(x=x, predict_frames=2, return_modality_dict=True)
-    print("radar:", out["radar"].shape)
-    print("satellite:", out["satellite"].shape)
-    print("rain:", out["rain"].shape)

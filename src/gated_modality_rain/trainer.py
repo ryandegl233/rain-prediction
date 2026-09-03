@@ -7,15 +7,10 @@ Objective:
 """
 
 import json
-import os
-import sys
 import time
-from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
 
-# Ensure the project root is on sys.path so `src.*` imports work
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 import accelerate
 import hydra
@@ -23,7 +18,6 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 from accelerate import Accelerator
-from accelerate.state import PartialState
 from ema_pytorch import EMA
 from hydra.core.hydra_config import HydraConfig
 from loguru import logger
@@ -36,35 +30,11 @@ from tqdm import tqdm
 
 from src.dataset.rain_ts_litdata import denormalize_rain_linear
 from src.networks.losses.gan import gan_critic_total_loss, gan_generator_loss
+from src.utils.gated_checkpoint import load_gated_model_initialization
 from src.utils.visualization.plot import plot_any_modality
 
-try:
-    import colored_traceback
 
-    colored_traceback.add_hook()
-except Exception:
-    colored_traceback = None
-
-try:
-    from accelerate.utils import DummyOptim, DummyScheduler
-except Exception:
-
-    class DummyOptim:  # pragma: no cover
-        def __init__(self, *args, **kwargs):
-            self.param_groups = [{"lr": 0.0}]
-
-        def step(self):
-            return None
-
-        def zero_grad(self, *args, **kwargs):
-            return None
-
-    class DummyScheduler:  # pragma: no cover
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def step(self):
-            return None
+from accelerate.utils.deepspeed import DummyOptim, DummyScheduler
 
 
 def apply_context_modality_dropout(
@@ -132,8 +102,8 @@ def apply_context_modality_dropout(
     return dropped_context, available
 
 
-class RainTSNextFrameTrainer:
-    def __init__(self, cfg: DictConfig):
+class GatedModalityRainTrainer:
+    def __init__(self, cfg: DictConfig) -> None:
         self.cfg = cfg
         self.train_cfg = cfg.train
         self.val_cfg = cfg.val
@@ -165,7 +135,10 @@ class RainTSNextFrameTrainer:
             init_path = Path(str(init_model_path))
             if not init_path.exists():
                 raise FileNotFoundError(f"init_model_path does not exist: {init_path}")
-            accelerate.load_checkpoint_in_model(self.model, str(init_path), strict=False)
+            if getattr(self.model, "spatial_modality_gate", None) is not None:
+                load_gated_model_initialization(self.model, init_path)
+            else:
+                accelerate.load_checkpoint_in_model(self.model, str(init_path), strict=False)
             self.log_msg(f"Loaded model initialization weights from {init_path}. Optimizer and scheduler start fresh.")
 
         self.gan_cfg = self.train_cfg.get("gan", {})
@@ -402,7 +375,9 @@ class RainTSNextFrameTrainer:
         self.tensorboard_writer.close()
         self.tensorboard_writer = None
 
-    def _build_optim_sched(self):
+    def _build_optim_sched(
+        self,
+    ) -> tuple[torch.optim.Optimizer | DummyOptim, torch.optim.lr_scheduler.LRScheduler | DummyScheduler]:
         ds_plugin = self.accelerator.state.deepspeed_plugin
         if ds_plugin is None or "optimizer" not in ds_plugin.deepspeed_config:
             need_named_params = "muon" in self.train_cfg.optim._target_
@@ -418,7 +393,7 @@ class RainTSNextFrameTrainer:
             sched = DummyScheduler(opt)
         return opt, sched
 
-    def _build_gan_optim_sched(self):
+    def _build_gan_optim_sched(self) -> tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LRScheduler]:
         ds_plugin = self.accelerator.state.deepspeed_plugin
         if ds_plugin is not None:
             raise ValueError("train.gan.enabled=True currently does not support deepspeed plugin.")
@@ -2494,21 +2469,3 @@ class RainTSNextFrameTrainer:
             self.train()
         finally:
             self._close_tensorboard_writer()
-
-
-@hydra.main(
-    config_path="../config/ts_rain_train",
-    #config_name="rain_trainer_ts_next_frame",
-    config_name="rain_trainer_ts_next_frame_delta_filter",
-
-    version_base=None,
-)
-def main(cfg: DictConfig) -> None:
-    catcher = logger.catch if PartialState().is_main_process else nullcontext
-    with catcher():
-        trainer = RainTSNextFrameTrainer(cfg)
-        trainer.run()
-
-
-if __name__ == "__main__":
-    main()

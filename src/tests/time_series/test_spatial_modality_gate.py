@@ -5,10 +5,32 @@ import pytest
 import torch
 import torch.nn as nn
 
+from src.gated_modality_rain.model import GatedModalityRainModel
 from src.networks.time_series.causal_patch_transformer_next_frame import RainCausalPatchTransformerNextFrame
 
 
-def build_model(**overrides: object) -> RainCausalPatchTransformerNextFrame:
+def build_model(**overrides: object) -> GatedModalityRainModel:
+    settings = {
+        "in_channels": 12,
+        "radar_out_channels": 1,
+        "satellite_out_channels": 10,
+        "rain_out_channels": 1,
+        "input_size": 16,
+        "patch_size": 4,
+        "stem_channels": 16,
+        "dim": 32,
+        "depth": 1,
+        "num_heads": 4,
+        "decoder_base_channels": 16,
+        "dropout": 0.0,
+        "drop_path": 0.0,
+        "max_frames": 8,
+    }
+    settings.update(overrides)
+    return GatedModalityRainModel(**settings)
+
+
+def build_baseline_model(**overrides: object) -> RainCausalPatchTransformerNextFrame:
     settings = {
         "in_channels": 12,
         "radar_out_channels": 1,
@@ -31,7 +53,7 @@ def build_model(**overrides: object) -> RainCausalPatchTransformerNextFrame:
 
 def test_neutral_gate_preserves_complete_predictions() -> None:
     torch.manual_seed(7)
-    baseline = build_model().eval()
+    baseline = build_baseline_model().eval()
     gated = build_model(spatial_modality_gate_enabled=True).eval()
     result = gated.load_state_dict(baseline.state_dict(), strict=False)
     assert not result.unexpected_keys
@@ -47,7 +69,7 @@ def test_neutral_gate_preserves_complete_predictions() -> None:
 
 def test_gate_preserves_initialization_and_encoded_tokens() -> None:
     torch.manual_seed(11)
-    baseline = build_model().eval()
+    baseline = build_baseline_model().eval()
     torch.manual_seed(11)
     gated = build_model(spatial_modality_gate_enabled=True).eval()
     for key, value in baseline.state_dict().items():
@@ -60,7 +82,7 @@ def test_gate_preserves_initialization_and_encoded_tokens() -> None:
 @pytest.mark.parametrize("encoder_type", ["patch", "resnet"])
 def test_disabled_gate_strictly_loads_baseline_weights(encoder_type: str) -> None:
     settings = {"encoder_type": encoder_type, "encoder_spatial_downsample_stages": 2}
-    baseline = build_model(**settings).eval()
+    baseline = build_baseline_model(**settings).eval()
     disabled = build_model(spatial_modality_gate_enabled=False, **settings).eval()
     assert disabled.spatial_modality_gate is None
     assert not any(key.startswith("spatial_modality_gate.") for key in disabled.state_dict())
@@ -132,7 +154,7 @@ def test_gates_have_spatial_variation_without_cross_time_mixing() -> None:
 def test_neutral_gate_preserves_ar_and_mask_tokens(
     return_modality_dict: bool, available: list[bool] | None
 ) -> None:
-    baseline = build_model().eval()
+    baseline = build_baseline_model().eval()
     gated = build_model(spatial_modality_gate_enabled=True).eval()
     gated.load_state_dict(baseline.state_dict(), strict=False)
     context = torch.randn(1, 12, 4, 16, 16)
@@ -216,7 +238,7 @@ def test_cuda_neutral_gate_preserves_predictions(autocast_enabled: bool, grad_en
     if autocast_enabled and not torch.cuda.is_bf16_supported():
         pytest.skip("CUDA device lacks bf16 support; bf16 path not validated")
     torch.manual_seed(2025)
-    baseline = build_model(activation_checkpoint=True).cuda().eval()
+    baseline = build_baseline_model(activation_checkpoint=True).cuda().eval()
     gated = build_model(spatial_modality_gate_enabled=True, activation_checkpoint=True).cuda().eval()
     gated.load_state_dict(baseline.state_dict(), strict=False)
     x = torch.randn(1, 12, 4, 16, 16, device="cuda")

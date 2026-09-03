@@ -6,12 +6,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import hydra
 from omegaconf import DictConfig
 
-from src.trainer.rain_trainer_ts_next_frame import RainTSNextFrameTrainer
+from src.gated_modality_rain.trainer import GatedModalityRainTrainer
 
 
 @hydra.main(config_path="../config/ts_rain_train", config_name="gated_modality_rain_trainer", version_base=None)
 def main(cfg: DictConfig) -> None:
-    trainer = RainTSNextFrameTrainer(cfg)
+    trainer = GatedModalityRainTrainer(cfg)
     trainer.run()
 
 
