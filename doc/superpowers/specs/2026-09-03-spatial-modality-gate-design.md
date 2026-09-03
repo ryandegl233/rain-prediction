@@ -1,6 +1,6 @@
 # 雷达与卫星空间门控：第一阶段结构设计
 
-_RainPrediction · 2026-09-03 · 结构方向已获同意，本文细节待审阅；尚未实现或验证_
+_RainPrediction · 2026-09-03 · 用户已批准；第一版名称：gated_modality_rain_trainer_
 
 ---
 
@@ -80,11 +80,11 @@ z_fused = z_base + (g_radar - 1) * z_radar
 | 配置 | 门控 | 固定起报 |
 | --- | --- | --- |
 | `rain_trainer_ts_next_frame_fixed_origin.yaml` | 关闭 | 开启 |
-| `rain_trainer_ts_next_frame_spatial_gate.yaml` | 开启 | 开启 |
+| `gated_modality_rain_trainer.yaml` | 开启 | 开启 |
 
 两者都通过公共固定起报配置设置 `train.next_pred.rollout_branch.use_gt_future_modalities=false`、`val.rollout_use_gt_future_modalities=false`，并使用独立输出目录。除门控和输出目录外，两者保持相同的数据、loss、优化器和训练预算设置；不启用 cross-modal adapter 或 local-window refiner。
 
-启动时必须显式指定配置名，因为当前 trainer 装饰器默认选择 `rain_trainer_ts_next_frame_delta_filter`。本阶段只验证配置解析，不启动训练。固定起报开关也不意味着原网络全链路因果性已得到证明。
+新增同名入口 `src/trainer/gated_modality_rain_trainer.py`，默认选择 `gated_modality_rain_trainer` 配置并复用 `RainTSNextFrameTrainer`，不复制训练逻辑。使用旧入口时必须显式指定配置名，因为旧入口默认选择 `rain_trainer_ts_next_frame_delta_filter`。本阶段只验证配置解析，不启动训练。固定起报开关也不意味着原网络全链路因果性已得到证明。
 
 ## ✅ 验收标准
 
@@ -115,4 +115,4 @@ CPU 小尺寸 FP32 测试是必需项；有可用 CUDA 时补做真实训练 dty
 
 ## 📍 审阅状态
 
-固定起报协议和雷达／卫星独立空间门控方向已于 2026-09-03 获用户同意。本文将具体数值路径、配置隔离和验收条件整理为待审阅设计；实现计划和代码工作需在本文确认后开始。
+用户已于 2026-09-03 批准本文设计，并指定第一版名称为 `gated_modality_rain_trainer`。本阶段进入实现与结构验证，不接入新 loss 或训练任务。
