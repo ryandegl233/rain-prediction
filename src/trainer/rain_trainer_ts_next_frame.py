@@ -36,6 +36,7 @@ from tqdm import tqdm
 
 from src.dataset.rain_ts_litdata import denormalize_rain_linear
 from src.networks.losses.gan import gan_critic_total_loss, gan_generator_loss
+from src.utils.gated_checkpoint import load_gated_model_initialization
 from src.utils.visualization.plot import plot_any_modality
 
 try:
@@ -165,7 +166,10 @@ class RainTSNextFrameTrainer:
             init_path = Path(str(init_model_path))
             if not init_path.exists():
                 raise FileNotFoundError(f"init_model_path does not exist: {init_path}")
-            accelerate.load_checkpoint_in_model(self.model, str(init_path), strict=False)
+            if getattr(self.model, "spatial_modality_gate", None) is not None:
+                load_gated_model_initialization(self.model, init_path)
+            else:
+                accelerate.load_checkpoint_in_model(self.model, str(init_path), strict=False)
             self.log_msg(f"Loaded model initialization weights from {init_path}. Optimizer and scheduler start fresh.")
 
         self.gan_cfg = self.train_cfg.get("gan", {})

@@ -1,0 +1,20 @@
+defaults:
+  - rain_trainer_ts_next_frame_fixed_origin
+  - _self_
+
+hydra:
+  run:
+    dir: ./runs/gated_modality_rain_trainer/${now:%Y-%m-%d}/${now:%H-%M-%S}_${train.log.run_comment}
+
+accelerator:
+  project_config:
+    project_dir: runs/gated_modality_rain_trainer/
+    logging_dir: runs/gated_modality_rain_trainer/tensorboard
+
+train:
+  log:
+    run_comment: gated_modality_rain_trainer
+
+rain_prediction_model:
+  spatial_modality_gate_enabled: true
+  spatial_modality_gate_hidden_channels: 32
