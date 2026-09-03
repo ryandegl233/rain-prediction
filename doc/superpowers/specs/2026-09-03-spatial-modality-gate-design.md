@@ -105,6 +105,8 @@ z_fused = z_base + (g_radar - 1) * z_radar
 
 CPU 小尺寸 FP32 测试是必需项；有可用 CUDA 时补做真实训练 dtype 的前向、梯度有限性与等价性检查，并记录硬件和数值误差。没有 CUDA 时明确标注未验证，不用跳过结果冒充通过。
 
+部署目标是服务器 CUDA GPU。生产逻辑随模型和输入 device／dtype 运算，兼容现有 Accelerate、DDP、activation checkpoint 和 bf16 autocast，不在 forward 中硬编码 CPU 或搬运设备。提供可在服务器直接执行的 CUDA／bf16 测试；本机 CPU 验证不替代 GPU 验证。
+
 全链路时间因果性另做前缀扰动检查，尤其关注原 3D decoder 的时间归一化与填充。若该检查暴露既有问题，应报告并单独确定修复范围，不把无关修复混入门控，也不在解决前宣称固定起报评估已完全可靠。
 
 ## ⚠️ 代价与后续边界

@@ -21,6 +21,7 @@
 - 两份新配置除门控和输出目录外，保持相同的数据、loss、优化器和训练预算；不启用 cross-modal adapter 或 local-window refiner。
 - 不删除数据、不批量删除文件、不修改现存 `.gitignore` 改动、不自动推送 GitHub。
 - 新 Python 代码使用现代类型标注和英文注释；测试放在 `src/tests/`；不运行 ty。
+- 部署目标为 CUDA GPU：生产运算随输入 device／dtype，兼容 Accelerate、DDP、activation checkpoint、bf16 autocast；新增服务器 CUDA／bf16 测试，本机不可执行时明确跳过原因。
 
 ## 📂 文件职责
 
@@ -29,7 +30,7 @@
 | `src/networks/time_series/causal_patch_transformer_next_frame.py` | 私有空间门控模块、开关和编码接入 |
 | `src/trainer/gated_modality_rain_trainer.py` | 同名 Hydra 入口，复用现有 trainer |
 | `src/trainer/rain_trainer_ts_next_frame.py` | 只在模型初始化加载处调用受检加载；不改 loss／rollout 算法 |
-| `src/utils/checkpoint.py` | 如确需独立模块：门控权重初始化核验，不做格式兼容框架 |
+| `src/utils/gated_checkpoint.py` | 门控权重初始化核验，不做格式兼容框架 |
 | `src/config/ts_rain_train/rain_trainer_ts_next_frame_fixed_origin.yaml` | 公共固定起报对照配置 |
 | `src/config/ts_rain_train/gated_modality_rain_trainer.yaml` | 继承对照配置，只开门控和改输出目录 |
 | `src/tests/time_series/test_spatial_modality_gate.py` | 小尺寸真实模型结构、等价、梯度、加载测试 |
@@ -49,7 +50,7 @@
 - 门控模块 `forward(z_radar: torch.Tensor, z_satellite: torch.Tensor, z_rain: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]`，每个输出形状 `[B,1,T,H,W]`。
 - `src/trainer/gated_modality_rain_trainer.py` 默认配置名 `gated_modality_rain_trainer`；直接脚本运行与 `python -m` 均能解析配置。
 
-- [ ] **Step 1: 建立小尺寸模型测试并验证 RED。**
+- [x] **Step 1: 建立小尺寸模型测试并验证 RED。**
 
 独立测试文件中的工厂使用真实模型，`input_size=16, patch_size=4, stem_channels=16, dim=32, depth=1, num_heads=4, decoder_base_channels=16, dropout=0, drop_path=0, max_frames=8`。输入使用有限随机 `[1,12,4,16,16]`。先加以下测试，运行后必须因新增参数尚不存在而失败：
 
@@ -71,7 +72,7 @@ def test_neutral_gate_preserves_complete_predictions() -> None:
 
 命令：测试环境 Python `-m pytest src/tests/time_series/test_spatial_modality_gate.py -q`。
 
-- [ ] **Step 2: 实现最小门控与编码接入，转为 GREEN。**
+- [x] **Step 2: 实现最小门控与编码接入，转为 GREEN。**
 
 在现有模型文件添加私有模块，按以下核心操作实现，模块成员名由语义确定，不添加额外状态缓存或测试专用方法：
 
@@ -98,7 +99,7 @@ encoded = encoded + (gate_radar - 1) * z_radar + (gate_satellite - 1) * z_satell
 
 新增参数正值、模态通道正值及总和、encoder 和时间 patch 验证应在开启时尽早执行并给出明确 `ValueError`。关门控走原数值路径，不破坏已有 resnet 模式。
 
-- [ ] **Step 3: 补齐门控行为测试，各测试先观察失败或确认其对应实现已由 Step 1 驱动。**
+- [x] **Step 3: 补齐门控行为测试，各测试先观察失败或确认其对应实现已由 Step 1 驱动。**
 
 断言中使用手工构造值，避免调用待测 helper 计算期待结果。以 ConvStem 的前向 pre-hook 观察融合输入：将权重设置为已知常数，最后 gate head 设置常数 logit `atanh(0.5)` 和 `atanh(-0.5)`，预期融合为 `1.5*z_radar + 0.5*z_satellite + z_rain + bias`（允许非中性拆分求和的 FP32 误差）。改变仅降水输入时验证直接贡献系数为 1；旧 bias 只加一次。
 
@@ -108,7 +109,7 @@ encoded = encoded + (gate_radar - 1) * z_radar + (gate_satellite - 1) * z_satell
 
 命令：测试环境 Python `-m pytest src/tests/time_series/test_spatial_modality_gate.py src/tests/time_series/test_causal_patch_transformer_next_frame.py -q`。
 
-- [ ] **Step 4: 配置与权重加载测试先 RED，然后实现同名入口与受检初始化。**
+- [x] **Step 4: 配置与权重加载测试先 RED，然后实现同名入口与受检初始化。**
 
 用 Hydra compose 真实加载两份新配置，解析后比较 dataset、train、val、optim 设置；除门控和输出设置外不得有差异。两份均满足固定起报 false 开关，`resume_path` 为空；基配置的其他 loss 原样保留。
 
@@ -120,10 +121,15 @@ defaults:
   - _self_
 hydra:
   run:
-    dir: ./runs/next_frame_fixed_origin/${now:%Y-%m-%d}/${now:%H-%M-%S}_${comment}
-comment: next_frame_fixed_origin
+    dir: runs/next_frame_fixed_origin/${now:%Y-%m-%d}/${now:%H-%M-%S}_${train.log.run_comment}
+accelerator:
+  project_config:
+    project_dir: runs/next_frame_fixed_origin/
+    logging_dir: runs/next_frame_fixed_origin/tensorboard
 train:
   resume_path: null
+  log:
+    run_comment: next_frame_fixed_origin
   next_pred:
     rollout_branch:
       use_gt_future_modalities: false
@@ -139,8 +145,14 @@ defaults:
   - _self_
 hydra:
   run:
-    dir: ./runs/gated_modality_rain_trainer/${now:%Y-%m-%d}/${now:%H-%M-%S}_${comment}
-comment: gated_modality_rain_trainer
+    dir: runs/gated_modality_rain_trainer/${now:%Y-%m-%d}/${now:%H-%M-%S}_${train.log.run_comment}
+accelerator:
+  project_config:
+    project_dir: runs/gated_modality_rain_trainer/
+    logging_dir: runs/gated_modality_rain_trainer/tensorboard
+train:
+  log:
+    run_comment: gated_modality_rain_trainer
 rain_prediction_model:
   spatial_modality_gate_enabled: true
   spatial_modality_gate_hidden_channels: 32
@@ -152,7 +164,7 @@ rain_prediction_model:
 
 命令：测试环境 Python `-m pytest src/tests/trainer/test_gated_modality_rain_trainer.py -q`，初次因缺新配置／入口或未拒绝不完整权重而 RED，实现后 GREEN。
 
-- [ ] **Step 5: 固定起报与原接口集成验证。**
+- [x] **Step 5: 固定起报与原接口集成验证。**
 
 使用现有 trainer 测试的轻量构造方式，不创建真实 dataset/训练任务。用真实小尺寸 gated 模型执行 `_rollout_predict`（以现有函数签名为准）；同样历史输入配两份不同未来雷达／卫星／降水标签，在 `use_gt_future_modalities=False` 下预测逐元素相同。用 train rollout 与 val 配置驱动开关，不仅检查 YAML 文本。
 
@@ -165,7 +177,7 @@ python -m src.trainer.gated_modality_rain_trainer --cfg job
 
 运行原 trainer 与模型的相关完整回归；CUDA 可用时增加 bf16 前向及反传，硬件不可用明确记录未验证。记录额外参数量 `sum(p.numel() for p in model.spatial_modality_gate.parameters())`，stem384/hidden32应为37,282，不推断吞吐或显存。
 
-- [ ] **Step 6: 自审、提交和报告。**
+- [x] **Step 6: 自审、提交和报告。**
 
 运行 `git diff --check`、新增代码语法检查与上述 pytest；只 stage 本任务文件，不包含 `.gitignore`。提交信息 `feat: add gated modality rain trainer v1`。实现报告列出 RED/GREEN 命令和结果、文件、checkpoint 格式选择、边界与未验证项，不声称预测指标提升。
 
