@@ -211,22 +211,42 @@ def test_invalid_gate_configuration_fails_early(overrides: dict[str, object], me
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA GPU unavailable; GPU path not validated")
 @pytest.mark.parametrize("autocast_enabled", [False, True], ids=["fp32", "bf16"])
-def test_cuda_neutral_gate_forward_backward(autocast_enabled: bool) -> None:
+@pytest.mark.parametrize("grad_enabled", [False, True], ids=["no_grad", "grad"])
+def test_cuda_neutral_gate_preserves_predictions(autocast_enabled: bool, grad_enabled: bool) -> None:
     if autocast_enabled and not torch.cuda.is_bf16_supported():
         pytest.skip("CUDA device lacks bf16 support; bf16 path not validated")
+    torch.manual_seed(2025)
     baseline = build_model(activation_checkpoint=True).cuda().eval()
     gated = build_model(spatial_modality_gate_enabled=True, activation_checkpoint=True).cuda().eval()
     gated.load_state_dict(baseline.state_dict(), strict=False)
     x = torch.randn(1, 12, 4, 16, 16, device="cuda")
-    with torch.autocast("cuda", dtype=torch.bfloat16, enabled=autocast_enabled):
-        with torch.no_grad():
-            expected = baseline(x)
+    with torch.set_grad_enabled(grad_enabled), torch.autocast("cuda", dtype=torch.bfloat16, enabled=autocast_enabled):
+        expected = baseline(x)
         actual = gated(x)
-        loss = sum(value.float().square().mean() for value in actual.values())
     for name in expected:
+        assert expected[name].requires_grad == grad_enabled
+        assert actual[name].requires_grad == grad_enabled
         assert actual[name].is_cuda
         assert torch.isfinite(actual[name]).all()
         torch.testing.assert_close(actual[name], expected[name], rtol=0, atol=0)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA GPU unavailable; GPU path not validated")
+@pytest.mark.parametrize("autocast_enabled", [False, True], ids=["fp32", "bf16"])
+def test_cuda_gate_backward(autocast_enabled: bool) -> None:
+    if autocast_enabled and not torch.cuda.is_bf16_supported():
+        pytest.skip("CUDA device lacks bf16 support; bf16 path not validated")
+    torch.manual_seed(2025)
+    gated = build_model(spatial_modality_gate_enabled=True, activation_checkpoint=True).cuda().train()
+    x = torch.randn(1, 12, 4, 16, 16, device="cuda")
+    with torch.enable_grad(), torch.autocast("cuda", dtype=torch.bfloat16, enabled=autocast_enabled):
+        actual = gated(x)
+        loss = sum(value.float().square().mean() for value in actual.values())
+
+    for value in actual.values():
+        assert value.is_cuda
+        assert torch.isfinite(value).all()
+    assert torch.isfinite(loss)
     loss.backward()
     for parameter in (gated.patch_embed.weight, gated.spatial_modality_gate.net[-1].weight):
         assert parameter.grad is not None
