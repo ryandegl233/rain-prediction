@@ -40,10 +40,10 @@ git diff 9b02789 -- src/networks/time_series/causal_patch_transformer_next_frame
 | 验证 | 结果 |
 | --- | --- |
 | 首次隔离测试 RED | 1 failed、1 passed；独立文件尚不存在，原文件保护通过 |
-| 修复后控制端完整相关回归（`3d26509`） | 104 passed、6 skipped、21 warnings，82.50 秒 |
+| 最终控制端完整相关回归（`45a72bb`） | 104 passed、6 skipped、21 warnings，114.46 秒 |
 | 新旧模型／trainer 对照 | 权重加载、预测、loss、梯度和 SGD 参数更新零容差对照通过 |
 | 两种门控 CLI `--cfg job` | 模块／脚本模式均通过，不启动训练 |
-| 真实 logger 初始化回归 | 临时目录中的配置与 TensorBoard 目录创建通过 |
+| 真实 logger 初始化回归 | 子进程日志／配置／TensorBoard 初始化通过，父进程日志 sink 保持 |
 | Ruff 项目规则及额外 `--select F821` | 通过 |
 | Python 语法编译、Git 差异检查 | 通过 |
 
@@ -51,9 +51,11 @@ git diff 9b02789 -- src/networks/time_series/causal_patch_transformer_next_frame
 
 独立审查发现首轮测试没有覆盖真实日志初始化：清理导入时误移除了 `_configure_logger` 使用的 `sys`。新增回归先复现 `NameError`，随后仅在我们的 trainer 中补回 `import sys`。修复提交 `3d26509`，针对性覆盖集为 38 passed，之后执行上表中的完整相关回归；核心训练方法没有因此改变。
 
+整体审查进一步发现进程内日志测试会清空 pytest 的全局 Loguru sinks。`45a72bb` 仅修改测试：真实初始化移入子进程，父进程增加 sentinel 验证既有日志输出仍可用，清理只移除测试自行新增的 sink。先复现 sentinel 消失，再得到隔离测试 6 passed；修复复审通过，最后重跑全部 110 个相关用例，得到上表结果。无遗留阻断审查项。
+
 ## 🔧 服务器复测命令
 
-本地实现提交为 `11750ac`（独立副本）和 `3d26509`（日志初始化修复）。
+本地实现提交为 `11750ac`（独立副本）、`3d26509`（日志初始化修复）和 `45a72bb`（测试进程隔离）。
 
 本次没有推送。以下命令只能在本地提交已另行发布到 GitHub 后，用服务器的 `yanjie` 环境执行。服务器的远端名是 `myorigin`；若拉取因本地修改或分叉拒绝，停止并检查，不覆盖、不强制重置、不清理数据。
 

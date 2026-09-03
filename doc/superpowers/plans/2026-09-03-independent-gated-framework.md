@@ -46,7 +46,7 @@
 - CLI unchanged: `python -m src.trainer.gated_modality_rain_trainer`; the script entry also remains valid.
 - Test helper `build_model(**overrides)` becomes the independent model; add `build_baseline_model(**overrides)` to construct the real original baseline with the same tiny settings. All baseline comparison sides use the latter.
 
-- [ ] **Step 1: Add failing isolation tests before production copies.**
+- [x] **Step 1: Add failing isolation tests before production copies.**
 
 Start with a missing-package assertion inside a test (not collection failure), then assert class/module ownership and baseline content protection. Use normalized Git blob hashing so Windows CRLF does not produce false positives:
 
@@ -66,11 +66,11 @@ def test_independent_framework_package_exists() -> None:
 
 Protect original source blob IDs `7a60fbf3da6723eb220cb9c793dbd091318b35b9` and `d81d4b13db01c98af7c1a00c881784797b2da485`. Assert new classes are not old classes/subclasses, model helper classes live in the new module, and every trainer method is independently defined. Add real loss/gradient parity tests against the original trainer with nontrivial modality tensors and weights; compare actual loss/log tensors and gradients, not mock return values. Add a real optimizer-step parity test using original/new disabled models with identical states and identical small batches, and independently constructed trainer objects, without full dataset initialization. Mirror the original trainer test setup fields needed by `train_step`, but do not mutate old test files or their globals.
 
-- [ ] **Step 2: Record the expected RED.**
+- [x] **Step 2: Record the expected RED.**
 
 Use `D:/rain-prediction/.superpowers/sdd/2026-09-03-gated-modality-rain-trainer/venv/Scripts/python.exe` with two torch CPU threads. Run only the new isolation test file first. Record the failing assertion that independent files are absent, and the passing original-content guards. Do not install packages or modify the existing environment.
 
-- [ ] **Step 3: Copy the production bodies with controlled mechanical transformations.**
+- [x] **Step 3: Copy the production bodies with controlled mechanical transformations.**
 
 Read `git show 6c67b56:src/networks/time_series/causal_patch_transformer_next_frame.py` and `git show 6c67b56:src/trainer/rain_trainer_ts_next_frame.py`. Generate the new files with `apply_patch`; source strings can be captured from read-only Git commands using the functions JavaScript store. Preserve the core statements and parameter registration order.
 
@@ -93,7 +93,7 @@ function trainerCopy(source) {
 
 Read the copied code and check exact class replacements occurred. Remove entry-only imports and import-time CLI setup from the pure trainer module if no core method uses them; use direct existing dependencies instead of copying fallback compatibility classes. Preserve functional trainer method bodies. English comments and modern annotations apply to the new files; do not reformat original source. Keep `_SpatialModalityGate` and other private model helpers in the independent model file. Keep checkpoint loading in the independent trainer; do not duplicate the loader.
 
-- [ ] **Step 4: Move our entry/config/tests to the independent classes.**
+- [x] **Step 4: Move our entry/config/tests to the independent classes.**
 
 ```python
 from src.gated_modality_rain.trainer import GatedModalityRainTrainer
@@ -113,7 +113,7 @@ rain_prediction_model:
 
 In model tests, use real original baseline for neutral/disabled equivalence and all four CUDA precision/grad-mode comparisons. Keep strict `rtol=0, atol=0` under identical grad modes. Preserve two CUDA backward tests and all existing gate behavior cases. In trainer tests, checkpoint baseline sources remain original models; gated sources and targets use the new model. Adjust configuration target expectations and trainer monkeypatch paths. Fixed-origin baseline rollout tests instantiate original trainer/model; gated tests instantiate independent trainer/model. Preserve all eight checkpoint representations, incomplete/corrupt checkpoint rejection, and future-target perturbation tests.
 
-- [ ] **Step 5: Verify the completed migration and self-review.**
+- [x] **Step 5: Verify the completed migration and self-review.**
 
 Run the two updated test files, two unchanged original test files, and new isolation file in a single pytest invocation using two torch threads and `-q -rs -p no:cacheprovider`. Run Ruff and syntax compilation on new/changed Python files only. Also run Ruff `--select F821` on the independent production modules to check names used by copied methods after import cleanup. Verify module and script `--cfg job` paths via existing entry tests and exercise real logger setup in a temporary-directory subprocess; no real training. Review all source-copy AST differences against `6c67b56`, allowing public class rename, removed demo/main/setup and annotations, but no changed model/trainer core logic. Run:
 
@@ -125,6 +125,6 @@ git diff --check
 
 Both content comparisons must be empty. Record actual counts; the local environment is CPU-only, so CUDA skips are not GPU passes. Record existing Torch JIT warnings without suppressing them. No real data/weights, training, DDP or metric claims.
 
-- [ ] **Step 6: Commit the scoped deliverable, then request controller review.**
+- [x] **Step 6: Commit the scoped deliverable, then request controller review.**
 
 Stage only the named production/test files plus the already-restored original source and `AGENTS.md`. Do not stage `.gitignore` or controller-owned docs. Commit with `refactor: isolate gated modality model and trainer`. Write the report with RED/GREEN commands/output and self-review findings in the task workspace; the controller will independently review, update documentation and leave everything unpushed.
