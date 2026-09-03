@@ -1,7 +1,9 @@
 import hashlib
 import inspect
 from pathlib import Path
-from types import SimpleNamespace
+import subprocess
+import sys
+import textwrap
 
 import torch
 from loguru import logger
@@ -132,32 +134,58 @@ def test_disabled_trainer_optimizer_step_matches_baseline() -> None:
 
 
 def test_configure_logger_creates_real_startup_artifacts(tmp_path: Path) -> None:
-    trainer = object.__new__(GatedModalityRainTrainer)
-    trainer.cfg = OmegaConf.create(
-        {
-            "train": {
-                "proj_dir": str(tmp_path / "run"),
-                "debug": True,
-                "log": {"log_with_time": False, "run_comment": ""},
-            }
-        }
-    )
-    trainer.train_cfg = trainer.cfg.train
-    trainer.accelerator = SimpleNamespace(
-        use_distributed=False,
-        is_main_process=True,
-        project_configuration=SimpleNamespace(project_dir=None, logging_dir=None),
-    )
+    received: list[str] = []
+    sentinel_id = logger.add(received.append, format="{message}")
     try:
-        log_file = trainer._configure_logger()
-    finally:
-        logger.remove()
+        result = subprocess.run(
+            [sys.executable, "-c", textwrap.dedent(
+                """
+                import sys
+                from pathlib import Path
+                from types import SimpleNamespace
 
-    assert log_file == tmp_path / "run" / "log.log"
-    assert (tmp_path / "run" / "config" / "config_total.yaml").is_file()
-    assert (tmp_path / "run" / "tensorboard").is_dir()
-    assert trainer.accelerator.project_configuration.project_dir == str(tmp_path / "run")
-    assert trainer.accelerator.project_configuration.logging_dir == str(tmp_path / "run" / "tensorboard")
+                from loguru import logger
+                from omegaconf import OmegaConf
+
+                from src.gated_modality_rain.trainer import GatedModalityRainTrainer
+
+                run_dir = Path(sys.argv[1]) / "run"
+                trainer = object.__new__(GatedModalityRainTrainer)
+                trainer.cfg = OmegaConf.create(
+                    {"train": {"proj_dir": str(run_dir), "debug": False, "log": {"log_with_time": False, "run_comment": ""}}}
+                )
+                trainer.train_cfg = trainer.cfg.train
+                trainer.accelerator = SimpleNamespace(
+                    use_distributed=False,
+                    is_main_process=True,
+                    project_configuration=SimpleNamespace(project_dir=None, logging_dir=None),
+                )
+                log_file = trainer._configure_logger()
+                logger.info("subprocess startup")
+                trainer._close_tensorboard_writer()
+                logger.remove()
+                assert log_file == run_dir / "log.log"
+                assert (run_dir / "log.log").is_file()
+                assert (run_dir / "config" / "config_total.yaml").is_file()
+                assert (run_dir / "tensorboard").is_dir()
+                assert trainer.accelerator.project_configuration.project_dir == str(run_dir)
+                assert trainer.accelerator.project_configuration.logging_dir == str(run_dir / "tensorboard")
+                """
+            ), str(tmp_path)],
+            cwd=Path(__file__).resolve().parents[3],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert (tmp_path / "run" / "log.log").is_file()
+        assert (tmp_path / "run" / "config" / "config_total.yaml").is_file()
+        assert (tmp_path / "run" / "tensorboard").is_dir()
+        logger.info("parent-sentinel")
+        assert received == ["parent-sentinel\n"]
+    finally:
+        logger.remove(sentinel_id)
 
 
 class _ParityAccelerator:
