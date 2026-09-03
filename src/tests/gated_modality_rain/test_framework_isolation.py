@@ -1,8 +1,10 @@
 import hashlib
 import inspect
 from pathlib import Path
+from types import SimpleNamespace
 
 import torch
+from loguru import logger
 from omegaconf import OmegaConf
 
 import src.gated_modality_rain.model as independent_model_module
@@ -127,6 +129,35 @@ def test_disabled_trainer_optimizer_step_matches_baseline() -> None:
         torch.testing.assert_close(independent_logs[name], baseline_logs[name], rtol=0, atol=0)
     for name, baseline_parameter in baseline_model.named_parameters():
         torch.testing.assert_close(independent_model.state_dict()[name], baseline_parameter, rtol=0, atol=0)
+
+
+def test_configure_logger_creates_real_startup_artifacts(tmp_path: Path) -> None:
+    trainer = object.__new__(GatedModalityRainTrainer)
+    trainer.cfg = OmegaConf.create(
+        {
+            "train": {
+                "proj_dir": str(tmp_path / "run"),
+                "debug": True,
+                "log": {"log_with_time": False, "run_comment": ""},
+            }
+        }
+    )
+    trainer.train_cfg = trainer.cfg.train
+    trainer.accelerator = SimpleNamespace(
+        use_distributed=False,
+        is_main_process=True,
+        project_configuration=SimpleNamespace(project_dir=None, logging_dir=None),
+    )
+    try:
+        log_file = trainer._configure_logger()
+    finally:
+        logger.remove()
+
+    assert log_file == tmp_path / "run" / "log.log"
+    assert (tmp_path / "run" / "config" / "config_total.yaml").is_file()
+    assert (tmp_path / "run" / "tensorboard").is_dir()
+    assert trainer.accelerator.project_configuration.project_dir == str(tmp_path / "run")
+    assert trainer.accelerator.project_configuration.logging_dir == str(tmp_path / "run" / "tensorboard")
 
 
 class _ParityAccelerator:
