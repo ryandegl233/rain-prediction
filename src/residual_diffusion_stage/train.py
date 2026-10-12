@@ -10,10 +10,23 @@ from torch import nn
 
 from src.residual_diffusion_stage.losses import (
     ChannelMoments,
+    deterministic_correction_loss,
     diffusion_residual_loss,
     residual_autoencoder_loss,
 )
-from src.residual_diffusion_stage.models import ConditionalDiffusion, LatentNormalizer, ResidualAutoencoder
+from src.residual_diffusion_stage.metrics import (
+    DeterministicMetricAccumulator,
+    EnsembleMetricAccumulator,
+    PRIMARY_THRESHOLDS_MM_PER_MIN,
+    center_ensemble_residuals,
+)
+from src.residual_diffusion_stage.models import (
+    ConditionalDiffusion,
+    DeterministicResidualCorrector,
+    LatentNormalizer,
+    ResidualAutoencoder,
+)
+from src.residual_diffusion_stage.robust_occurrence_corrector import RobustOccurrenceCorrector
 from src.trainer.rain_trainer_ts_next_frame import RainTSNextFrameTrainer
 
 
@@ -24,9 +37,10 @@ DEFAULT_BASE_CONFIG = "rain_trainer_ts_next_frame_cross_local_finetune"
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train the isolated residual AE or latent diffusion stage")
-    parser.add_argument("--stage", choices=("ae", "diffusion"), required=True)
+    parser.add_argument("--stage", choices=("ae", "corrector", "diffusion"), required=True)
     parser.add_argument("--coarse-checkpoint", type=Path, required=True)
     parser.add_argument("--ae-checkpoint", type=Path, default=None)
+    parser.add_argument("--corrector-checkpoint", type=Path, default=None)
     parser.add_argument("--diffusion-checkpoint", type=Path, default=None)
     parser.add_argument("--base-config-name", default=DEFAULT_BASE_CONFIG)
     parser.add_argument("--stage-config", type=Path, default=DEFAULT_STAGE_CONFIG)
@@ -66,6 +80,7 @@ def _build_coarse_trainer(
     output_dir: Path,
     batch_size: int,
     accumulation_steps: int,
+    num_workers: int | None = None,
 ) -> RainTSNextFrameTrainer:
     cfg = _load_base_config(config_name)
     resolved_checkpoint = _resolve_coarse_checkpoint(coarse_checkpoint, int(cfg.train.save_every))
@@ -83,6 +98,9 @@ def _build_coarse_trainer(
         cfg.val.save_visuals = False
         cfg.dataset.train.batch_size = batch_size
         cfg.dataset.val.batch_size = batch_size
+        if num_workers is not None:
+            cfg.dataset.train.num_workers = int(num_workers)
+            cfg.dataset.val.num_workers = int(num_workers)
         cfg.dataset.train.persistent_workers = False
         cfg.dataset.val.persistent_workers = False
         cfg.ema.beta = 0.0
@@ -150,6 +168,7 @@ def _save_checkpoint(
     coarse_checkpoint: Path,
     ae_checkpoint: Path | None = None,
     initial_diffusion_checkpoint: Path | None = None,
+    corrector_checkpoint: Path | None = None,
     latent_stats: tuple[torch.Tensor, torch.Tensor] | None = None,
 ) -> None:
     trainer.accelerator.wait_for_everyone()
@@ -166,6 +185,7 @@ def _save_checkpoint(
         "initial_diffusion_checkpoint": (
             None if initial_diffusion_checkpoint is None else str(initial_diffusion_checkpoint)
         ),
+        "corrector_checkpoint": None if corrector_checkpoint is None else str(corrector_checkpoint),
     }
     if latent_stats is not None:
         payload["latent_mean"], payload["latent_std"] = latent_stats
@@ -187,11 +207,13 @@ def _train_ae_epoch(
     count = torch.zeros((), device=trainer.device)
     optimizer.zero_grad(set_to_none=True)
     for batch in _limit(trainer.train_dataloadaer, maximum):
-        _, _, _, residual = _make_residual_batch(trainer, batch)
+        _, _, target_rain, residual = _make_residual_batch(trainer, batch)
         with accelerator.accumulate(model):
             with accelerator.autocast():
                 reconstruction, _ = model(residual)
-                loss, _ = residual_autoencoder_loss(reconstruction, residual, loss_cfg)
+                loss, _ = residual_autoencoder_loss(
+                    reconstruction, residual, loss_cfg, rainfall_target=target_rain
+                )
             accelerator.backward(loss)
             if accelerator.sync_gradients:
                 accelerator.clip_grad_norm_(model.parameters(), gradient_clip_norm)
@@ -214,10 +236,12 @@ def _validate_ae(
     loss_sum = torch.zeros((), device=trainer.device)
     count = torch.zeros((), device=trainer.device)
     for batch in _limit(trainer.val_dataloader, maximum):
-        _, _, _, residual = _make_residual_batch(trainer, batch)
+        _, _, target_rain, residual = _make_residual_batch(trainer, batch)
         with accelerator.autocast():
             reconstruction, _ = model(residual)
-            loss, _ = residual_autoencoder_loss(reconstruction, residual, loss_cfg)
+            loss, _ = residual_autoencoder_loss(
+                reconstruction, residual, loss_cfg, rainfall_target=target_rain
+            )
         loss_sum += loss
         count += 1
     return _distributed_mean(accelerator, loss_sum, count)
@@ -241,6 +265,25 @@ def _calibrate_latent(
     return mean, std.clamp_min(1.0e-4)
 
 
+@torch.no_grad()
+def _calibrate_delta_latent(
+    trainer: RainTSNextFrameTrainer,
+    ae: ResidualAutoencoder,
+    corrector: DeterministicResidualCorrector,
+    channels: int,
+    maximum: int,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    moments = ChannelMoments(channels)
+    for batch in _limit(trainer.train_dataloadaer, maximum):
+        history, coarse, target, _ = _make_residual_batch(trainer, batch)
+        with trainer.accelerator.autocast():
+            center = corrector(coarse, history)["center"]
+            latent = ae.encode(target - center)
+        moments.update(latent)
+    mean, std = moments.compute()
+    return mean, std.clamp_min(1.0e-4)
+
+
 def _load_ae_checkpoint(path: Path, latent_channels: int, device: torch.device):
     payload = torch.load(path.expanduser().resolve(), map_location="cpu", weights_only=False)
     ae = ResidualAutoencoder(latent_channels)
@@ -253,11 +296,59 @@ def _load_ae_checkpoint(path: Path, latent_channels: int, device: torch.device):
     return ae, normalizer
 
 
-def _train_diffusion_epoch(
+def _load_corrector_checkpoint(
+    path: Path,
+    model_cfg: dict,
+    device: torch.device,
+    rain_norm_mean: float | None = None,
+    rain_norm_std: float | None = None,
+) -> nn.Module:
+    payload = torch.load(path.expanduser().resolve(), map_location="cpu", weights_only=False)
+    checkpoint_cfg = payload.get("stage_config", {}).get("model", model_cfg)
+    if payload.get("corrector_variant") == "robust_occurrence":
+        checkpoint_cfg = dict(checkpoint_cfg)
+        robust_cfg = dict(checkpoint_cfg.get("robust_occurrence", {}))
+        if robust_cfg.get("rain_norm_mean") is None and rain_norm_mean is not None:
+            robust_cfg["rain_norm_mean"] = float(rain_norm_mean)
+        if robust_cfg.get("rain_norm_std") is None and rain_norm_std is not None:
+            robust_cfg["rain_norm_std"] = float(rain_norm_std)
+        checkpoint_cfg["robust_occurrence"] = robust_cfg
+        corrector = RobustOccurrenceCorrector(checkpoint_cfg)
+    else:
+        corrector = DeterministicResidualCorrector(checkpoint_cfg)
+    corrector.load_state_dict(payload["model"])
+    return corrector.to(device).eval().requires_grad_(False)
+
+
+def _corrector_loss(
+    trainer: RainTSNextFrameTrainer,
+    outputs: dict[str, torch.Tensor],
+    coarse: torch.Tensor,
+    target: torch.Tensor,
+    loss_cfg: dict,
+) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+    center_metric = trainer._denormalize_rain_for_metrics(outputs["center"].float())
+    coarse_metric = trainer._denormalize_rain_for_metrics(coarse.float())
+    target_metric = trainer._denormalize_rain_for_metrics(target.float())
+    mu_metric = trainer._denormalize_rain_for_metrics((coarse + outputs["mu"]).float()) - coarse_metric
+    return deterministic_correction_loss(
+        center_metric,
+        target_metric,
+        coarse_metric,
+        mu_metric,
+        outputs["gate"].float(),
+        loss_cfg,
+        occurrence_logits=(
+            None
+            if outputs.get("occurrence_logits") is None
+            else outputs["occurrence_logits"].float()
+        ),
+    )
+
+
+def _train_corrector_epoch(
     trainer: RainTSNextFrameTrainer,
     model: nn.Module,
-    ae: ResidualAutoencoder,
-    normalizer: LatentNormalizer,
     optimizer: torch.optim.Optimizer,
     loss_cfg: dict,
     maximum: int | None,
@@ -269,12 +360,124 @@ def _train_diffusion_epoch(
     count = torch.zeros((), device=trainer.device)
     optimizer.zero_grad(set_to_none=True)
     for batch in _limit(trainer.train_dataloadaer, maximum):
-        history, coarse, _, residual = _make_residual_batch(trainer, batch)
+        history, coarse, target, _ = _make_residual_batch(trainer, batch)
+        with accelerator.accumulate(model):
+            with accelerator.autocast():
+                outputs = model(coarse, history)
+                loss, terms = _corrector_loss(trainer, outputs, coarse, target, loss_cfg)
+            accelerator.backward(loss)
+            if accelerator.sync_gradients:
+                accelerator.clip_grad_norm_(model.parameters(), gradient_clip_norm)
+            optimizer.step()
+            optimizer.zero_grad(set_to_none=True)
+        detached = {"total": loss.detach(), **{name: value.detach() for name, value in terms.items()}}
+        for name, value in detached.items():
+            metric_sums[name] = metric_sums.get(name, torch.zeros_like(value)) + value
+        count += 1
+    return {
+        name: _distributed_mean(accelerator, value_sum, count)
+        for name, value_sum in metric_sums.items()
+    }
+
+
+@torch.no_grad()
+def _validate_corrector(
+    trainer: RainTSNextFrameTrainer,
+    model: nn.Module,
+    loss_cfg: dict,
+    maximum: int | None,
+) -> dict[str, float]:
+    accelerator = trainer.accelerator
+    model.eval()
+    metric_sums: dict[str, torch.Tensor] = {}
+    count = torch.zeros((), device=trainer.device)
+    thresholds = sorted(
+        set(
+            float(value)
+            for value in loss_cfg.get("metric_thresholds", [0.01, 0.1, 0.2, 0.5, 1.0])
+        )
+    )
+    deterministic_metrics = None
+    for batch in _limit(trainer.val_dataloader, maximum):
+        history, coarse, target, _ = _make_residual_batch(trainer, batch)
+        with accelerator.autocast():
+            outputs = model(coarse, history)
+            loss, terms = _corrector_loss(trainer, outputs, coarse, target, loss_cfg)
+        center_metric = trainer._denormalize_rain_for_metrics(outputs["center"].float()).clamp_min(0)
+        target_metric = trainer._denormalize_rain_for_metrics(target.float()).clamp_min(0)
+        if deterministic_metrics is None:
+            deterministic_metrics = DeterministicMetricAccumulator(
+                thresholds, int(target.shape[2]), trainer.device
+            )
+        deterministic_metrics.update(center_metric, target_metric)
+        detached = {"total": loss.detach(), **{name: value.detach() for name, value in terms.items()}}
+        for name, value in detached.items():
+            metric_sums[name] = metric_sums.get(name, torch.zeros_like(value)) + value
+        count += 1
+    results = {
+        name: _distributed_mean(accelerator, value_sum, count)
+        for name, value_sum in metric_sums.items()
+    }
+    if deterministic_metrics is not None:
+        deterministic_metrics.reduce(accelerator)
+        deterministic_result = deterministic_metrics.result()
+        overall = deterministic_result["overall"]
+        results.update(
+            {
+                "metric_mae": overall["mae"],
+                "metric_rmse": overall["rmse"],
+                "metric_bias": overall["bias"],
+                "metric_mean_csi": overall["mean_csi"],
+            }
+        )
+        for threshold in thresholds:
+            event = overall[f"threshold@{threshold:g}"]
+            for name in ("csi", "pod", "far", "f1", "hss"):
+                results[f"metric_{name}@{threshold:g}"] = event[name]
+        for lead in deterministic_result["by_lead"]:
+            lead_number = int(lead["lead_index"]) + 1
+            for threshold in thresholds:
+                event = lead[f"threshold@{threshold:g}"]
+                for name in ("csi", "pod", "far"):
+                    results[f"metric_t{lead_number}_{name}@{threshold:g}"] = event[name]
+    return results
+
+
+def _train_diffusion_epoch(
+    trainer: RainTSNextFrameTrainer,
+    model: nn.Module,
+    ae: ResidualAutoencoder,
+    normalizer: LatentNormalizer,
+    corrector: DeterministicResidualCorrector | None,
+    optimizer: torch.optim.Optimizer,
+    loss_cfg: dict,
+    maximum: int | None,
+    gradient_clip_norm: float,
+) -> dict[str, float]:
+    accelerator = trainer.accelerator
+    model.train()
+    metric_sums: dict[str, torch.Tensor] = {}
+    count = torch.zeros((), device=trainer.device)
+    optimizer.zero_grad(set_to_none=True)
+    for batch in _limit(trainer.train_dataloadaer, maximum):
+        history, coarse, target, residual = _make_residual_batch(trainer, batch)
         with torch.no_grad(), accelerator.autocast():
+            corrector_outputs = None if corrector is None else corrector(coarse, history)
+            if corrector_outputs is not None:
+                residual = target - corrector_outputs["center"]
             normalized_latent = normalizer.normalize(ae.encode(residual))
         with accelerator.accumulate(model):
             with accelerator.autocast():
-                outputs = model(normalized_latent, coarse, history, return_outputs=True)
+                outputs = model(
+                    normalized_latent,
+                    coarse if corrector_outputs is None else corrector_outputs["center"],
+                    history,
+                    return_outputs=True,
+                    deterministic_residual=(
+                        None if corrector_outputs is None else corrector_outputs["mu"]
+                    ),
+                    residual_gate=None if corrector_outputs is None else corrector_outputs["gate"],
+                )
                 predicted_x0 = outputs["predicted_x0"].clamp(
                     -float(loss_cfg.get("x0_clip", 8.0)),
                     float(loss_cfg.get("x0_clip", 8.0)),
@@ -286,6 +489,7 @@ def _train_diffusion_epoch(
                     residual,
                     outputs["alpha_bar"],
                     loss_cfg,
+                    target_rain=target,
                 )
             accelerator.backward(loss)
             if accelerator.sync_gradients:
@@ -308,10 +512,17 @@ def _validate_diffusion(
     model: nn.Module,
     ae: ResidualAutoencoder,
     normalizer: LatentNormalizer,
+    corrector: DeterministicResidualCorrector | None,
     maximum: int | None,
     sample_batches: int,
     csi_thresholds: list[float],
+    ensemble_size: int = 16,
+    ddim_steps: int | None = None,
+    seed: int = 2025,
 ) -> tuple[float, dict[str, float]]:
+    """Validate with a fixed, centered ensemble for checkpoint selection."""
+    if ensemble_size < 2:
+        raise ValueError(f"ensemble_size must be >= 2, got {ensemble_size}")
     accelerator = trainer.accelerator
     model.eval()
     loss_sum = torch.zeros((), device=trainer.device)
@@ -321,37 +532,61 @@ def _validate_diffusion(
     count = torch.zeros((), device=trainer.device)
     event_counts = {
         source: {
-            threshold: {
-                name: torch.zeros((), device=trainer.device)
-                for name in ("hits", "misses", "false_alarms")
-            }
+            threshold: {name: torch.zeros((), device=trainer.device) for name in ("hits", "misses", "false_alarms")}
             for threshold in csi_thresholds
         }
         for source in ("coarse", "final")
     }
+    ensemble_metrics: EnsembleMetricAccumulator | None = None
     for batch_index, batch in enumerate(_limit(trainer.val_dataloader, maximum)):
-        history, coarse, target, residual = _make_residual_batch(trainer, batch)
+        history, coarse, target, _ = _make_residual_batch(trainer, batch)
         with accelerator.autocast():
+            corrector_outputs = None if corrector is None else corrector(coarse, history)
+            center = coarse if corrector_outputs is None else corrector_outputs["center"]
+            residual = target - center
             latent = ae.encode(residual)
             normalized_latent = normalizer.normalize(latent)
-            loss = model(normalized_latent, coarse, history)
+            loss = model(
+                normalized_latent,
+                center,
+                history,
+                deterministic_residual=None if corrector_outputs is None else corrector_outputs["mu"],
+                residual_gate=None if corrector_outputs is None else corrector_outputs["gate"],
+            )
             if batch_index < sample_batches:
                 diffusion = accelerator.unwrap_model(model)
-                generator = torch.Generator(device=trainer.device).manual_seed(2025 + batch_index)
-                sampled = diffusion.ddim_sample(
-                    tuple(normalized_latent.shape),
-                    coarse,
-                    history,
-                    generator=generator,
-                )
-                correction = ae.decode(normalizer.denormalize(sampled))
-                final = (coarse + correction).clamp_min(0)
-                coarse_metric = trainer._denormalize_rain_for_metrics(coarse.float()).clamp_min(0)
-                final_metric = trainer._denormalize_rain_for_metrics(final.float()).clamp_min(0)
+                latent_shape = tuple(normalized_latent.shape)
+                delta_members = []
+                for member_index in range(ensemble_size):
+                    generator = torch.Generator(device=trainer.device).manual_seed(
+                        int(seed) + batch_index * ensemble_size + member_index
+                    )
+                    sampled = diffusion.ddim_sample(
+                        latent_shape,
+                        center,
+                        history,
+                        steps=ddim_steps,
+                        generator=generator,
+                        deterministic_residual=None if corrector_outputs is None else corrector_outputs["mu"],
+                        residual_gate=None if corrector_outputs is None else corrector_outputs["gate"],
+                    )
+                    delta_members.append(ae.decode(normalizer.denormalize(sampled)).float())
+                deltas = center_ensemble_residuals(torch.stack(delta_members, dim=1), variance_correction=True)
+                members = center[:, None] + deltas
                 target_metric = trainer._denormalize_rain_for_metrics(target.float()).clamp_min(0)
+                coarse_metric = trainer._denormalize_rain_for_metrics(coarse.float()).clamp_min(0)
+                members_metric = trainer._denormalize_rain_for_metrics(
+                    members.reshape(-1, *members.shape[2:]).float()
+                ).clamp_min(0).reshape(members.shape)
+                mean_metric = members_metric.mean(dim=1)
+                if ensemble_metrics is None:
+                    ensemble_metrics = EnsembleMetricAccumulator(
+                        csi_thresholds, int(target.shape[2]), trainer.device, reliability_bins=10
+                    )
+                ensemble_metrics.update(members_metric, target_metric, coarse_metric)
                 coarse_l1_sum += (coarse_metric - target_metric).abs().mean()
-                final_l1_sum += (final_metric - target_metric).abs().mean()
-                for source, prediction in (("coarse", coarse_metric), ("final", final_metric)):
+                final_l1_sum += (mean_metric - target_metric).abs().mean()
+                for source, prediction in (("coarse", coarse_metric), ("final", mean_metric)):
                     for threshold in csi_thresholds:
                         predicted_event = prediction >= threshold
                         target_event = target_metric >= threshold
@@ -370,11 +605,16 @@ def _validate_diffusion(
     for source, by_threshold in event_counts.items():
         for threshold, counts in by_threshold.items():
             metrics[f"{source}_csi@{threshold:g}"] = _distributed_csi(
-                accelerator,
-                counts["hits"],
-                counts["misses"],
-                counts["false_alarms"],
+                accelerator, counts["hits"], counts["misses"], counts["false_alarms"]
             )
+    if ensemble_metrics is None:
+        raise RuntimeError("No validation batches were sampled for ensemble metrics")
+    ensemble_metrics.reduce(accelerator)
+    overall = ensemble_metrics.result()["overall"]
+    metrics["ensemble_crps"] = float(overall["crps"])
+    metrics["ensemble_twcrps@0.2"] = float(overall.get("threshold@0.2", {}).get("twcrps", 0.0))
+    metrics["ensemble_brier@0.2"] = float(overall.get("threshold@0.2", {}).get("brier", 0.0))
+    metrics["ensemble_spread_skill_ratio"] = float(overall["spread_skill_ratio"])
     return val_loss, metrics
 
 
@@ -411,7 +651,13 @@ def _run_ae(args: argparse.Namespace, stage_cfg: DictConfig, trainer: RainTSNext
             args.max_val_batches,
         )
         scheduler.step()
-        row = {"epoch": epoch, "stage": "ae", "lr": scheduler.get_last_lr()[0], "train_loss": train_loss, "val_loss": val_loss}
+        row = {
+            "epoch": epoch,
+            "stage": "ae",
+            "lr": scheduler.get_last_lr()[0],
+            "train_loss": train_loss,
+            "val_loss": val_loss,
+        }
         if trainer.accelerator.is_main_process:
             metrics_path.parent.mkdir(parents=True, exist_ok=True)
             with metrics_path.open("a", encoding="utf-8") as stream:
@@ -451,6 +697,20 @@ def _run_ae(args: argparse.Namespace, stage_cfg: DictConfig, trainer: RainTSNext
         int(stage_cfg.model.latent_channels),
         calibration_batches,
     )
+    # Keep the best model directly usable by diffusion training.  ``best.pt``
+    # is selected before calibration, so add the calibrated latent moments to
+    # the same best weights after reloading them above.
+    _save_checkpoint(
+        trainer=trainer,
+        model=model,
+        output_path=args.output_dir / "ae" / "best.pt",
+        stage="ae",
+        epoch=int(best_payload.get("epoch", epochs)),
+        val_loss=best,
+        stage_cfg=stage_cfg,
+        coarse_checkpoint=args.coarse_checkpoint,
+        latent_stats=stats,
+    )
     _save_checkpoint(
         trainer=trainer,
         model=model,
@@ -466,6 +726,85 @@ def _run_ae(args: argparse.Namespace, stage_cfg: DictConfig, trainer: RainTSNext
         print(json.dumps({"latent_mean": stats[0].tolist(), "latent_std": stats[1].tolist()}))
 
 
+def _run_corrector(args: argparse.Namespace, stage_cfg: DictConfig, trainer: RainTSNextFrameTrainer) -> None:
+    training_cfg = stage_cfg.training
+    epochs = int(args.epochs if args.epochs is not None else training_cfg.corrector_epochs)
+    model_cfg = OmegaConf.to_container(stage_cfg.model, resolve=True)
+    model = DeterministicResidualCorrector(model_cfg).to(trainer.device)
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=float(training_cfg.get("corrector_learning_rate", training_cfg.learning_rate)),
+        weight_decay=float(training_cfg.weight_decay),
+    )
+    model, optimizer = trainer.accelerator.prepare(model, optimizer)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer,
+        T_max=max(epochs, 1),
+        eta_min=float(training_cfg.get("minimum_learning_rate", 1.0e-6)),
+    )
+    best = math.inf
+    metrics_path = args.output_dir / "corrector" / "metrics.jsonl"
+    loss_cfg = OmegaConf.to_container(stage_cfg.corrector_loss, resolve=True)
+    for epoch in range(1, epochs + 1):
+        train_metrics = _train_corrector_epoch(
+            trainer,
+            model,
+            optimizer,
+            loss_cfg,
+            args.max_train_batches,
+            float(training_cfg.gradient_clip_norm),
+        )
+        val_metrics = _validate_corrector(trainer, model, loss_cfg, args.max_val_batches)
+        scheduler.step()
+        row = {
+            "epoch": epoch,
+            "stage": "corrector",
+            "lr": scheduler.get_last_lr()[0],
+            **{f"train_{name}": value for name, value in train_metrics.items()},
+            **{f"val_{name}": value for name, value in val_metrics.items()},
+        }
+        if trainer.accelerator.is_main_process:
+            metrics_path.parent.mkdir(parents=True, exist_ok=True)
+            with metrics_path.open("a", encoding="utf-8") as stream:
+                stream.write(json.dumps(row) + "\n")
+            print(json.dumps(row))
+        _save_checkpoint(
+            trainer=trainer,
+            model=model,
+            output_path=args.output_dir / "corrector" / "last.pt",
+            stage="corrector",
+            epoch=epoch,
+            val_loss=val_metrics["total"],
+            stage_cfg=stage_cfg,
+            coarse_checkpoint=args.coarse_checkpoint,
+        )
+        if val_metrics["total"] < best:
+            best = val_metrics["total"]
+            _save_checkpoint(
+                trainer=trainer,
+                model=model,
+                output_path=args.output_dir / "corrector" / "best.pt",
+                stage="corrector",
+                epoch=epoch,
+                val_loss=best,
+                stage_cfg=stage_cfg,
+                coarse_checkpoint=args.coarse_checkpoint,
+            )
+    trainer.accelerator.wait_for_everyone()
+    best_payload = torch.load(args.output_dir / "corrector" / "best.pt", map_location="cpu", weights_only=False)
+    trainer.accelerator.unwrap_model(model).load_state_dict(best_payload["model"])
+    _save_checkpoint(
+        trainer=trainer,
+        model=model,
+        output_path=args.output_dir / "corrector" / "final.pt",
+        stage="corrector",
+        epoch=epochs,
+        val_loss=best,
+        stage_cfg=stage_cfg,
+        coarse_checkpoint=args.coarse_checkpoint,
+    )
+
+
 def _run_diffusion(args: argparse.Namespace, stage_cfg: DictConfig, trainer: RainTSNextFrameTrainer) -> None:
     if args.ae_checkpoint is None:
         raise ValueError("--ae-checkpoint is required for diffusion training; use the AE final.pt")
@@ -473,13 +812,51 @@ def _run_diffusion(args: argparse.Namespace, stage_cfg: DictConfig, trainer: Rai
     epochs = int(args.epochs if args.epochs is not None else training_cfg.diffusion_epochs)
     latent_channels = int(stage_cfg.model.latent_channels)
     ae, normalizer = _load_ae_checkpoint(args.ae_checkpoint, latent_channels, trainer.device)
-    model = ConditionalDiffusion(OmegaConf.to_container(stage_cfg.model, resolve=True)).to(trainer.device)
+    model_cfg = OmegaConf.to_container(stage_cfg.model, resolve=True)
+    corrector = None
+    if bool(model_cfg.get("use_deterministic_condition", False)):
+        if args.corrector_checkpoint is None:
+            raise ValueError("--corrector-checkpoint is required when use_deterministic_condition=true")
+        corrector = _load_corrector_checkpoint(
+            args.corrector_checkpoint,
+            model_cfg,
+            trainer.device,
+            trainer.rain_norm_mean,
+            trainer.rain_norm_std,
+        )
+    model = ConditionalDiffusion(model_cfg).to(trainer.device)
+    initial_payload = None
     if args.diffusion_checkpoint is not None:
         initial_path = args.diffusion_checkpoint.expanduser().resolve()
         initial_payload = torch.load(initial_path, map_location="cpu", weights_only=False)
         model.load_state_dict(initial_payload["model"])
         if trainer.accelerator.is_main_process:
             print(json.dumps({"initialized_diffusion_from": str(initial_path)}))
+    delta_latent_stats = None
+    if corrector is not None:
+        if initial_payload is not None and "latent_mean" in initial_payload and "latent_std" in initial_payload:
+            delta_latent_stats = (initial_payload["latent_mean"], initial_payload["latent_std"])
+        else:
+            calibration_batches = int(training_cfg.latent_calibration_batches)
+            if args.max_train_batches is not None:
+                calibration_batches = min(calibration_batches, int(args.max_train_batches))
+            delta_latent_stats = _calibrate_delta_latent(
+                trainer,
+                ae,
+                corrector,
+                latent_channels,
+                calibration_batches,
+            )
+        normalizer.set_stats(*delta_latent_stats)
+        if trainer.accelerator.is_main_process:
+            print(
+                json.dumps(
+                    {
+                        "delta_latent_mean": delta_latent_stats[0].tolist(),
+                        "delta_latent_std": delta_latent_stats[1].tolist(),
+                    }
+                )
+            )
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=float(training_cfg.learning_rate),
@@ -499,6 +876,7 @@ def _run_diffusion(args: argparse.Namespace, stage_cfg: DictConfig, trainer: Rai
             model,
             ae,
             normalizer,
+            corrector,
             optimizer,
             OmegaConf.to_container(stage_cfg.diffusion_loss, resolve=True),
             args.max_train_batches,
@@ -509,9 +887,18 @@ def _run_diffusion(args: argparse.Namespace, stage_cfg: DictConfig, trainer: Rai
             model,
             ae,
             normalizer,
+            corrector,
             args.max_val_batches,
             int(training_cfg.get("sample_val_batches", 2)),
-            [float(value) for value in trainer.val_cfg.get("csi_thresholds", [0.1, 0.3, 0.5])],
+            [
+                float(value)
+                for value in stage_cfg.get("evaluation", {}).get(
+                    "primary_thresholds", PRIMARY_THRESHOLDS_MM_PER_MIN
+                )
+            ],
+            ensemble_size=int(stage_cfg.get("evaluation", {}).get("ensemble_size", 16)),
+            ddim_steps=int(stage_cfg.get("evaluation", {}).get("ddim_steps", stage_cfg.model.get("sample_steps", 30))),
+            seed=int(training_cfg.get("seed", 2025)),
         )
         scheduler.step()
         row = {
@@ -539,8 +926,12 @@ def _run_diffusion(args: argparse.Namespace, stage_cfg: DictConfig, trainer: Rai
             coarse_checkpoint=args.coarse_checkpoint,
             ae_checkpoint=args.ae_checkpoint,
             initial_diffusion_checkpoint=args.diffusion_checkpoint,
+            corrector_checkpoint=args.corrector_checkpoint,
+            latent_stats=delta_latent_stats,
         )
-        selection_score = sampled_metrics["final_l1"]
+        # Select the checkpoint by probabilistic quality. CRPS is the primary
+        # score; final_l1 remains logged for deterministic diagnostics.
+        selection_score = sampled_metrics["ensemble_crps"]
         if selection_score < best:
             best = selection_score
             _save_checkpoint(
@@ -554,6 +945,8 @@ def _run_diffusion(args: argparse.Namespace, stage_cfg: DictConfig, trainer: Rai
                 coarse_checkpoint=args.coarse_checkpoint,
                 ae_checkpoint=args.ae_checkpoint,
                 initial_diffusion_checkpoint=args.diffusion_checkpoint,
+                corrector_checkpoint=args.corrector_checkpoint,
+                latent_stats=delta_latent_stats,
             )
     _save_checkpoint(
         trainer=trainer,
@@ -566,6 +959,8 @@ def _run_diffusion(args: argparse.Namespace, stage_cfg: DictConfig, trainer: Rai
         coarse_checkpoint=args.coarse_checkpoint,
         ae_checkpoint=args.ae_checkpoint,
         initial_diffusion_checkpoint=args.diffusion_checkpoint,
+        corrector_checkpoint=args.corrector_checkpoint,
+        latent_stats=delta_latent_stats,
     )
 
 
@@ -592,6 +987,8 @@ def main() -> None:
     try:
         if args.stage == "ae":
             _run_ae(args, stage_cfg, trainer)
+        elif args.stage == "corrector":
+            _run_corrector(args, stage_cfg, trainer)
         else:
             _run_diffusion(args, stage_cfg, trainer)
     finally:

@@ -1,0 +1,22 @@
+defaults:
+  - rain_trainer_coarse_evolution
+  - _self_
+
+rain_prediction_model:
+  _target_: src.networks.time_series.causal_patch_transformer_ccc_init_fixed.RainCausalPatchTransformerCCCInitFixed
+  ccc_condition_scale_init: 0.1
+  consensus_calibration_enabled: true
+
+train:
+  init_model_path: /home/rainpred/RainPrediction/runs/next_frame_cross_local_finetune/2026-08-29/22-03-48_cross_local_finetune/checkpoints/checkpoint_12
+  log:
+    run_comment: coarse_ccc_init_fixed
+  loss:
+    rain_region_weight:
+      alpha: 0.0
+  next_pred:
+    rollout_branch:
+      weight: 0.2
+      weight_start: 0.2
+      weight_end: 0.2
+      ramp_steps: 0

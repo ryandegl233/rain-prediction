@@ -1,0 +1,8 @@
+defaults:
+  - rain_trainer_ts_next_frame_cross_local_finetune
+  - override rain_prediction_model: causal_patch_transformer_next_frame_cross_local_ccc
+  - _self_
+
+train:
+  log:
+    run_comment: cross_local_ccc

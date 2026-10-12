@@ -1,0 +1,19 @@
+defaults:
+  - rain_trainer_rollout_dry
+  - _self_
+
+rain_prediction_model:
+  _target_: src.networks.time_series.causal_patch_transformer_residual_neighbor.RainCausalPatchTransformerResidualNeighbor
+  correction_radius: 1
+  correction_chunk_size: 256
+  correction_scale_init: 0.1
+
+train:
+  init_model_path: /home/rainpred/RainPrediction/runs/rollout_dry_pro6000_0Q6klO/dry_guarded/checkpoints/checkpoint_1
+  max_steps: 500
+  save_every: 100
+  log:
+    run_comment: residual_neighbor
+
+val:
+  val_duration: 100

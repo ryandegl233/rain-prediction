@@ -1,0 +1,21 @@
+defaults:
+  - rain_trainer_coarse_ccc_init_fixed
+  - _self_
+
+dataset:
+  train:
+    num_workers: 0
+    persistent_workers: false
+
+train:
+  seed: 2025
+  log:
+    run_comment: ccc_frozen_ablation
+  max_steps: 1000
+  save_every: 250
+  resume_path: null
+
+val:
+  val_duration: 250
+  max_val_iters: 60
+  rollout_use_gt_future_modalities: false

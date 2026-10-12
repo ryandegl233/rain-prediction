@@ -1,0 +1,18 @@
+defaults:
+  - rain_trainer_ts_next_frame_cross_local_ccc
+  - _self_
+
+accelerator:
+  project_config:
+    total_limit: 8
+
+train:
+  init_model_path: /home/rainpred/RainPrediction/runs/next_frame_cross_local_finetune/2026-08-29/22-03-48_cross_local_finetune/checkpoints/checkpoint_12
+  resume_path: null
+  max_steps: 1000
+  save_every: 250
+  log:
+    run_comment: cross_local_ccc_smoke_250
+
+val:
+  val_duration: 250

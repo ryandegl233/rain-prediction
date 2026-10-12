@@ -1,0 +1,32 @@
+defaults:
+  - rain_trainer_rollout_dry
+  - _self_
+
+rain_prediction_model:
+  _target_: src.networks.time_series.causal_patch_transformer_soft_occurrence.RainCausalPatchTransformerSoftOccurrence
+  occurrence_gate_gamma: ${train.soft_occurrence.gate_gamma}
+
+train:
+  init_model_path: /home/rainpred/RainPrediction/runs/rollout_dry_pro6000_0Q6klO/dry_guarded/checkpoints/checkpoint_1
+  max_steps: 300
+  save_every: 50
+  log:
+    run_comment: soft_occurrence
+  loss:
+    rain_residual:
+      enabled: false
+      delta_weight: 0.0
+  soft_occurrence:
+    threshold_mm_min: 0.01
+    strong_threshold_mm_min: 0.1
+    false_positive_weight: 2.0
+    loss_weight: 0.002
+    strong_weight: 1.0
+    pod_floor: 0.75
+    pod_floor_weight: 1.0
+    gate_gamma: 2.0
+    gate_start_step: 50
+    gate_ramp_steps: 50
+
+val:
+  val_duration: 50

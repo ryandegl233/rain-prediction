@@ -131,6 +131,105 @@ class CoarseConditionEncoder(nn.Module):
         return self.encoder(coarse_rain)
 
 
+class _SpatialResidualBlock(nn.Module):
+    def __init__(self, c_in: int, c_out: int, stride: int = 1) -> None:
+        super().__init__()
+        self.block = nn.Sequential(
+            nn.Conv3d(c_in, c_out, (1, 3, 3), stride=(1, stride, stride), padding=(0, 1, 1)),
+            nn.GroupNorm(_group_count(c_out), c_out),
+            nn.SiLU(),
+            nn.Conv3d(c_out, c_out, (1, 3, 3), padding=(0, 1, 1)),
+            nn.GroupNorm(_group_count(c_out), c_out),
+        )
+        self.skip = (
+            nn.Conv3d(c_in, c_out, 1, stride=(1, stride, stride))
+            if c_in != c_out or stride != 1
+            else nn.Identity()
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return F.silu(self.block(x) + self.skip(x))
+
+
+class DeterministicResidualCorrector(nn.Module):
+    """Predict a signed correction, confidence gate, and optional rain occurrence."""
+
+    def __init__(self, cfg: dict) -> None:
+        super().__init__()
+        history_channels = int(cfg.get("history_channels", 12))
+        base_channels = int(cfg.get("corrector_base_channels", 16))
+        self.maximum_correction = float(cfg.get("maximum_correction", 2.0))
+        self.use_lead_embedding = bool(cfg.get("corrector_use_lead_embedding", False))
+        self.maximum_forecast_leads = int(cfg.get("maximum_forecast_leads", 8))
+        self.use_occurrence_head = bool(cfg.get("corrector_use_occurrence_head", False))
+        self.stem = _SpatialResidualBlock(1 + 2 * history_channels, base_channels)
+        if self.use_lead_embedding:
+            self.lead_embedding = nn.Embedding(self.maximum_forecast_leads, base_channels)
+            nn.init.zeros_(self.lead_embedding.weight)
+        self.local = _SpatialResidualBlock(base_channels, base_channels)
+        self.down = _SpatialResidualBlock(base_channels, 2 * base_channels, stride=2)
+        self.mid = _SpatialResidualBlock(2 * base_channels, 2 * base_channels)
+        self.up = nn.Conv3d(2 * base_channels, base_channels, 1)
+        self.fuse = _SpatialResidualBlock(2 * base_channels, base_channels)
+        self.mu_head = nn.Conv3d(base_channels, 1, 1)
+        self.gate_head = nn.Conv3d(base_channels, 1, 1)
+        if self.use_occurrence_head:
+            self.occurrence_head = nn.Conv3d(base_channels, 1, 1)
+            nn.init.zeros_(self.occurrence_head.weight)
+            nn.init.constant_(
+                self.occurrence_head.bias,
+                float(cfg.get("initial_occurrence_logit", -2.2)),
+            )
+        nn.init.zeros_(self.mu_head.weight)
+        nn.init.zeros_(self.mu_head.bias)
+        nn.init.zeros_(self.gate_head.weight)
+        nn.init.constant_(self.gate_head.bias, float(cfg.get("initial_gate_logit", -2.2)))
+
+    def forward(self, coarse_rain: torch.Tensor, history: torch.Tensor) -> dict[str, torch.Tensor]:
+        if coarse_rain.ndim != 5 or history.ndim != 5:
+            raise ValueError("coarse_rain and history must both have shape [B,C,T,H,W]")
+        future_frames = coarse_rain.shape[2]
+        if self.use_lead_embedding and future_frames > self.maximum_forecast_leads:
+            raise ValueError(
+                f"future_frames={future_frames} exceeds maximum_forecast_leads="
+                f"{self.maximum_forecast_leads}"
+            )
+        history_mean = history.mean(dim=2, keepdim=True).expand(-1, -1, future_frames, -1, -1)
+        history_latest = history[:, :, -1:].expand(-1, -1, future_frames, -1, -1)
+        shallow = self.stem(torch.cat([coarse_rain, history_latest, history_mean], dim=1))
+        if self.use_lead_embedding:
+            lead_ids = torch.arange(future_frames, device=coarse_rain.device)
+            lead_features = self.lead_embedding(lead_ids).transpose(0, 1)[None, :, :, None, None]
+            shallow = shallow + lead_features.to(dtype=shallow.dtype)
+        shallow = self.local(shallow)
+        deep = self.mid(self.down(shallow))
+        deep = F.interpolate(deep, size=shallow.shape[-3:], mode="trilinear", align_corners=False)
+        features = self.fuse(torch.cat([shallow, self.up(deep)], dim=1))
+        mu = self.maximum_correction * torch.tanh(self.mu_head(features))
+        gate = torch.sigmoid(self.gate_head(features))
+        center = coarse_rain + gate * mu
+        outputs = {"mu": mu, "gate": gate, "center": center}
+        if self.use_occurrence_head:
+            outputs["occurrence_logits"] = self.occurrence_head(features)
+        return outputs
+
+
+class ResidualStructureEncoder(nn.Module):
+    """Encode deterministic residual structure at the AE latent resolution."""
+
+    def __init__(self, latent_channels: int) -> None:
+        super().__init__()
+        self.encoder = nn.Sequential(
+            nn.Conv3d(2, 32, 3, stride=(1, 2, 2), padding=1),
+            nn.GroupNorm(_group_count(32), 32),
+            nn.SiLU(),
+            nn.Conv3d(32, latent_channels, 3, stride=(1, 2, 2), padding=1),
+        )
+
+    def forward(self, deterministic_residual: torch.Tensor, residual_gate: torch.Tensor) -> torch.Tensor:
+        return self.encoder(torch.cat([deterministic_residual, residual_gate], dim=1))
+
+
 class ResBlock3D(nn.Module):
     def __init__(self, c_in: int, c_out: int, emb_dim: int) -> None:
         super().__init__()
@@ -248,6 +347,12 @@ class ConditionalDiffusion(nn.Module):
             int(cfg["condition_tokens"]),
         )
         self.coarse_encoder = CoarseConditionEncoder(int(cfg["latent_channels"]))
+        self.use_deterministic_condition = bool(cfg.get("use_deterministic_condition", False))
+        self.structure_encoder = (
+            ResidualStructureEncoder(int(cfg["latent_channels"]))
+            if self.use_deterministic_condition
+            else None
+        )
         self.unet = ConditionalUNet3D(cfg)
         betas = torch.linspace(1.0e-4, 0.02, self.steps)
         self.register_buffer("alphas_bar", torch.cumprod(1.0 - betas, dim=0))
@@ -257,6 +362,8 @@ class ConditionalDiffusion(nn.Module):
         normalized_residual_latent: torch.Tensor,
         coarse_rain: torch.Tensor,
         history: torch.Tensor,
+        deterministic_residual: torch.Tensor | None = None,
+        residual_gate: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
         batch = normalized_residual_latent.shape[0]
         timestep = torch.randint(0, self.steps, (batch,), device=normalized_residual_latent.device)
@@ -264,6 +371,10 @@ class ConditionalDiffusion(nn.Module):
         noise = torch.randn_like(normalized_residual_latent)
         noisy = alpha.sqrt() * normalized_residual_latent + (1 - alpha).sqrt() * noise
         coarse_condition = self.coarse_encoder(coarse_rain)
+        if self.structure_encoder is not None:
+            if deterministic_residual is None or residual_gate is None:
+                raise ValueError("deterministic_residual and residual_gate are required by this diffusion config")
+            coarse_condition = coarse_condition + self.structure_encoder(deterministic_residual, residual_gate)
         condition = self.condition(self.history_encoder(history))
         prediction = self.unet(noisy, coarse_condition, timestep, condition)
         predicted_x0 = (noisy - (1 - alpha).sqrt() * prediction) / alpha.sqrt()
@@ -279,8 +390,16 @@ class ConditionalDiffusion(nn.Module):
         normalized_residual_latent: torch.Tensor,
         coarse_rain: torch.Tensor,
         history: torch.Tensor,
+        deterministic_residual: torch.Tensor | None = None,
+        residual_gate: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        return self.training_outputs(normalized_residual_latent, coarse_rain, history)["noise_loss"]
+        return self.training_outputs(
+            normalized_residual_latent,
+            coarse_rain,
+            history,
+            deterministic_residual,
+            residual_gate,
+        )["noise_loss"]
 
     def forward(
         self,
@@ -288,8 +407,16 @@ class ConditionalDiffusion(nn.Module):
         coarse_rain: torch.Tensor,
         history: torch.Tensor,
         return_outputs: bool = False,
+        deterministic_residual: torch.Tensor | None = None,
+        residual_gate: torch.Tensor | None = None,
     ) -> torch.Tensor | dict[str, torch.Tensor]:
-        outputs = self.training_outputs(normalized_residual_latent, coarse_rain, history)
+        outputs = self.training_outputs(
+            normalized_residual_latent,
+            coarse_rain,
+            history,
+            deterministic_residual,
+            residual_gate,
+        )
         return outputs if return_outputs else outputs["noise_loss"]
 
     def _ddim_loop(
@@ -320,8 +447,14 @@ class ConditionalDiffusion(nn.Module):
         history: torch.Tensor,
         steps: int | None = None,
         generator: torch.Generator | None = None,
+        deterministic_residual: torch.Tensor | None = None,
+        residual_gate: torch.Tensor | None = None,
     ) -> torch.Tensor:
         x = torch.randn(shape, device=coarse_rain.device, dtype=coarse_rain.dtype, generator=generator)
         condition = self.condition(self.history_encoder(history))
         coarse_condition = self.coarse_encoder(coarse_rain)
+        if self.structure_encoder is not None:
+            if deterministic_residual is None or residual_gate is None:
+                raise ValueError("deterministic_residual and residual_gate are required by this diffusion config")
+            coarse_condition = coarse_condition + self.structure_encoder(deterministic_residual, residual_gate)
         return self._ddim_loop(x, coarse_condition, condition, self.sample_steps if steps is None else int(steps))

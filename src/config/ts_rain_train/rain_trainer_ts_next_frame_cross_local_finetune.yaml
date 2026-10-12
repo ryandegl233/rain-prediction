@@ -40,7 +40,7 @@ train:
   log:
     run_comment: cross_local_finetune
 
-# Keep the baseline evaluation protocol and metric definitions unchanged.
+# Match the paper/PPT event thresholds in physical mm/min units.
 val:
   max_val_iters: 60
   rollout_mode: frame
@@ -48,4 +48,4 @@ val:
   rollout_history_detach: true
   rollout_use_gt_future_modalities: false
   metric_data_range: 1.0
-  csi_thresholds: [0.1, 0.3, 0.5]
+  csi_thresholds: [0.01, 0.1, 0.2, 0.5]

@@ -1,0 +1,34 @@
+defaults:
+  - rain_trainer_ts_next_frame_cross_local_finetune
+  - _self_
+
+train:
+  max_steps: 12000
+  next_pred:
+    rollout_branch:
+      # Curriculum: start mostly teacher-forced, then increase self-fed history.
+      enabled: true
+      weight: 0.30
+      weight_start: 0.05
+      weight_end: 0.30
+      ramp_steps: 4000
+      mode: frame
+      rollout_block_size: 1
+      rollout_frames: 4
+      detach_history: true
+      use_gt_future_modalities: false
+      loss_on: rain
+      # Slightly emphasize long leads without overwhelming t+1.
+      lead_weights: [1.0, 1.05, 1.10, 1.15]
+      lead_loss_weight: 0.25
+      # Protect event recall while the long-lead false-alarm term is active.
+      pod_floor: 0.70
+      pod_floor_weight: 0.05
+      pod_threshold: 0.01
+      pod_temperature: 0.02
+      delta_loss:
+        enabled: true
+        weight: 1.0
+  log:
+    run_comment: cross_local_scheduled_rollout
+

@@ -14,6 +14,7 @@ from src.networks.modules.reconstruction import (
 from src.networks.time_series.causal_patch_transformer_diffusion import (
     CausalSpatiotemporalBlock,
 )
+from src.networks.modules.consensus_calibration import ConsensusConflictCalibration
 
 
 def _valid_gn_groups(channels: int, max_groups: int = 32) -> int:
@@ -31,6 +32,8 @@ class _CrossModalConditioner(nn.Module):
         modality_channels: tuple[int, int, int],
         patch_size: int,
         frame_patch_size: int,
+        consensus_calibration_enabled: bool = False,
+        consensus_calibration_bottleneck: int = 64,
     ) -> None:
         super().__init__()
         self.frame_patch_size = frame_patch_size
@@ -50,6 +53,32 @@ class _CrossModalConditioner(nn.Module):
         self.memory_norm = nn.LayerNorm(dim)
         self.attention = nn.MultiheadAttention(dim, heads, batch_first=True)
         self.gate = nn.Parameter(torch.zeros(()))
+        self.consensus_calibration = (
+            ConsensusConflictCalibration(
+                dim=dim,
+                bottleneck=consensus_calibration_bottleneck,
+                modality_count=len(self.adapters),
+            )
+            if consensus_calibration_enabled
+            else None
+        )
+
+    def _patch_statistics(
+        self,
+        modality_inputs: list[torch.Tensor],
+    ) -> list[torch.Tensor]:
+        stats: list[torch.Tensor] = []
+        kernel = (self.frame_patch_size, self.patch_size, self.patch_size)
+        stride = kernel
+        for value in modality_inputs:
+            mean_map = value.mean(dim=1, keepdim=True)
+            mean = F.avg_pool3d(mean_map, kernel_size=kernel, stride=stride)
+            second = F.avg_pool3d(value.square().mean(dim=1, keepdim=True), kernel_size=kernel, stride=stride)
+            std = (second - mean.square()).clamp_min(1e-6).sqrt()
+            max_map = value.amax(dim=1, keepdim=True)
+            maximum = F.max_pool3d(max_map, kernel_size=kernel, stride=stride)
+            stats.append(rearrange(torch.cat([mean, std, maximum], dim=1), "b c t h w -> b t (h w) c"))
+        return stats
 
     def forward(self, target_tokens: torch.Tensor, context_x: torch.Tensor) -> torch.Tensor:
         if context_x.shape[2] < self.frame_patch_size:
@@ -60,6 +89,12 @@ class _CrossModalConditioner(nn.Module):
         for adapter, modality_input in zip(self.adapters, modality_inputs, strict=True):
             encoded = adapter(modality_input)
             modality_tokens.append(rearrange(encoded, "b d t h w -> b t (h w) d"))
+
+        if self.consensus_calibration is not None:
+            modality_tokens = self.consensus_calibration(
+                modality_tokens,
+                patch_stats=self._patch_statistics(list(modality_inputs)),
+            )
 
         b, target_t, n, d = target_tokens.shape
         memory = torch.stack(modality_tokens, dim=3)
@@ -321,6 +356,8 @@ class RainCausalPatchTransformerNextFrame(nn.Module):
         local_window_refiner_enabled: bool = False,
         local_window_size: int = 7,
         local_window_heads: int | None = None,
+        consensus_calibration_enabled: bool = False,
+        consensus_calibration_bottleneck: int = 64,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
@@ -479,6 +516,8 @@ class RainCausalPatchTransformerNextFrame(nn.Module):
                 modality_channels=(self.radar_out_channels, self.satellite_out_channels, self.rain_out_channels),
                 patch_size=self.patch_size,
                 frame_patch_size=self.frame_patch_size,
+                consensus_calibration_enabled=consensus_calibration_enabled,
+                consensus_calibration_bottleneck=consensus_calibration_bottleneck,
             )
         self.local_window_refiner: _ShiftedWindowRefiner | None = None
         if self.local_window_refiner_enabled:

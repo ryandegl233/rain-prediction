@@ -14,6 +14,7 @@ def test_scale_metric_accumulator_computes_expected_event_metrics() -> None:
     assert event["csi"] == 1 / 3
     assert event["pod"] == 0.5
     assert event["far"] == 0.5
+    assert event["f1"] == 0.5
     assert overall["mae"] == pytest.approx(0.3)
 
 

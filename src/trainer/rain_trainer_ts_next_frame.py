@@ -771,8 +771,28 @@ class RainTSNextFrameTrainer:
         aux: dict[str, float | int | str | torch.Tensor | dict[str, torch.Tensor]] | None = None,
         loss_weight_override: dict[str, float] | None = None,
     ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+        loss_cfg = self.train_cfg.get("loss", {})
+
+        def pointwise_error(
+            pred_tensor: torch.Tensor,
+            target_tensor: torch.Tensor,
+            cfg: dict | None = None,
+        ) -> torch.Tensor:
+            """Return a configurable pointwise error map."""
+            cfg = cfg or {}
+            error_type = str(cfg.get("loss_type", "mse")).lower()
+            if error_type == "mse":
+                return F.mse_loss(pred_tensor, target_tensor, reduction="none")
+            if error_type in {"charbonnier", "smooth_l1"}:
+                eps = float(cfg.get("smooth_eps", cfg.get("charbonnier_eps", 1.0e-3)))
+                if eps <= 0:
+                    raise ValueError(f"loss smooth_eps must be > 0, got {eps}")
+                if error_type == "smooth_l1":
+                    return F.smooth_l1_loss(pred_tensor, target_tensor, reduction="none", beta=eps)
+                return torch.sqrt((pred_tensor - target_tensor).square() + eps * eps)
+            raise ValueError(f"unsupported pointwise loss_type: {error_type}")
+
         def resolve_temporal_diff_weight() -> tuple[bool, float, str]:
-            loss_cfg = self.train_cfg.get("loss", {})
             diff_cfg = loss_cfg.get("temporal_diff", {})
             enabled = bool(diff_cfg.get("enabled", False))
             if not enabled:
@@ -826,7 +846,7 @@ class RainTSNextFrameTrainer:
 
             pred_diff = pred_seq[:, :, 1:] - pred_seq[:, :, :-1]
             target_diff = target_seq[:, :, 1:] - target_seq[:, :, :-1]
-            diff_map = F.mse_loss(pred_diff, target_diff, reduction="none")
+            diff_map = pointwise_error(pred_diff, target_diff, loss_cfg.get("temporal_diff", {}))
             if loss_weight is not None:
                 diff_map = diff_map * loss_weight.to(device=diff_map.device, dtype=diff_map.dtype)
             return diff_map
@@ -920,17 +940,22 @@ class RainTSNextFrameTrainer:
             pred_rain: torch.Tensor,
             target_rain: torch.Tensor,
         ) -> tuple[torch.Tensor, bool]:
-            sq_error = F.mse_loss(pred_rain, target_rain, reduction="none")
-            loss_cfg = self.train_cfg.get("loss", {})
             mode = str(loss_cfg.get("mode", "mse")).lower()
             if mode == "mse":
-                return sq_error, False
+                return pointwise_error(pred_rain, target_rain), False
             if mode != "enhanced":
                 raise ValueError(f"train.loss.mode must be 'mse' or 'enhanced', got {mode}")
 
+            regression_cfg = dict(loss_cfg.get("rain_regression", {}))
+            if "regression_type" in loss_cfg and "loss_type" not in regression_cfg:
+                regression_cfg["loss_type"] = loss_cfg["regression_type"]
+            if "charbonnier_eps" in loss_cfg and "smooth_eps" not in regression_cfg:
+                regression_cfg["smooth_eps"] = loss_cfg["charbonnier_eps"]
+            base_error = pointwise_error(pred_rain, target_rain, regression_cfg)
+
             rain_cfg = loss_cfg.get("rain_region_weight", {})
             if not bool(rain_cfg.get("enabled", False)):
-                return sq_error, False
+                return base_error, regression_cfg.get("loss_type", "mse").lower() != "mse"
 
             alpha = float(rain_cfg.get("alpha", 0.0))
             r0 = float(rain_cfg.get("r0", 0.0))
@@ -941,7 +966,7 @@ class RainTSNextFrameTrainer:
                 raise ValueError(f"train.loss.rain_region_weight.gamma must be > 0, got {gamma}")
 
             weight = 1.0 + alpha * torch.clamp(target_rain - r0, min=0.0).pow(gamma)
-            return sq_error * weight, True
+            return base_error * weight, True
 
         def build_rain_event_loss_map(
             pred_rain: torch.Tensor,
@@ -971,6 +996,15 @@ class RainTSNextFrameTrainer:
                 thresholds = [float(v) for v in thresholds_cfg]
             if len(thresholds) == 0:
                 raise ValueError("train.loss.rain_event_aux.thresholds must contain at least 1 value.")
+            if bool(event_cfg.get("thresholds_in_physical", False)):
+                if self.rain_norm_mean is None or self.rain_norm_std is None:
+                    raise ValueError(
+                        "rain_event_aux.thresholds_in_physical=True requires rain normalization statistics."
+                    )
+                thresholds = [
+                    (threshold - self.rain_norm_mean) / self.rain_norm_std
+                    for threshold in thresholds
+                ]
 
             event_type = str(event_cfg.get("type", "bce")).lower()
             if event_type not in {"bce", "focal"}:
@@ -1006,6 +1040,26 @@ class RainTSNextFrameTrainer:
             event_map = torch.stack(per_threshold_maps, dim=0).mean(dim=0)
             return event_map, event_weight
 
+        def build_spatial_gradient_loss(
+            pred_rain: torch.Tensor,
+            target_rain: torch.Tensor,
+        ) -> tuple[torch.Tensor, float]:
+            gradient_cfg = loss_cfg.get("spatial_gradient", {})
+            if not bool(gradient_cfg.get("enabled", False)):
+                return torch.zeros((), device=pred_rain.device, dtype=pred_rain.dtype), 0.0
+            weight = float(gradient_cfg.get("weight", 0.0))
+            if weight <= 0 or pred_rain.ndim < 4 or pred_rain.shape[-1] <= 1 or pred_rain.shape[-2] <= 1:
+                return torch.zeros((), device=pred_rain.device, dtype=pred_rain.dtype), 0.0
+            pred_dx = pred_rain[..., :, 1:] - pred_rain[..., :, :-1]
+            target_dx = target_rain[..., :, 1:] - target_rain[..., :, :-1]
+            pred_dy = pred_rain[..., 1:, :] - pred_rain[..., :-1, :]
+            target_dy = target_rain[..., 1:, :] - target_rain[..., :-1, :]
+            grad_loss = 0.5 * (
+                pointwise_error(pred_dx, target_dx, gradient_cfg).mean()
+                + pointwise_error(pred_dy, target_dy, gradient_cfg).mean()
+            )
+            return grad_loss, weight
+
         rain_residual_enabled, rain_residual_delta_weight, _, _ = self._resolve_rain_residual_cfg()
         rain_residual_already_applied = bool(aux.get("rain_residual_already_applied", 0)) if aux is not None else False
         rain_residual_ref = aux.get("rain_residual_ref") if aux is not None else None
@@ -1017,7 +1071,7 @@ class RainTSNextFrameTrainer:
             rain_ref = rain_residual_ref.to(device=pred["rain"].device, dtype=pred["rain"].dtype)
             pred_for_loss["rain"] = self._apply_rain_residual_output(pred["rain"], rain_ref)
             target_delta = target_gt["rain"] - rain_ref
-            rain_delta_loss_map = F.mse_loss(pred["rain"], target_delta, reduction="none")
+            rain_delta_loss_map = pointwise_error(pred["rain"], target_delta, loss_cfg.get("rain_residual", {}))
 
         pred_tensor = self._merge_modalities(pred_for_loss["radar"], pred_for_loss["satellite"], pred_for_loss["rain"])
         target_tensor = self._merge_modalities(target_gt["radar"], target_gt["satellite"], target_gt["rain"])
@@ -1044,6 +1098,10 @@ class RainTSNextFrameTrainer:
                 pred_for_loss["rain"], target_gt["rain"]
             )
             l_rain = rain_loss_map.mean()
+            spatial_gradient_raw, spatial_gradient_weight = build_spatial_gradient_loss(
+                pred_for_loss["rain"], target_gt["rain"]
+            )
+            spatial_gradient_loss = spatial_gradient_weight * spatial_gradient_raw
             event_map, event_weight = build_rain_event_loss_map(pred_for_loss["rain"], target_gt["rain"])
             if event_map is None:
                 event_loss = torch.zeros((), device=loss_map.device, dtype=loss_map.dtype)
@@ -1061,6 +1119,7 @@ class RainTSNextFrameTrainer:
                 + lw_rain * l_rain
                 + event_loss
                 + rain_delta_loss_weighted
+                + spatial_gradient_loss
             )
 
             zero = torch.zeros((), device=loss_map.device, dtype=loss_map.dtype)
@@ -1121,6 +1180,8 @@ class RainTSNextFrameTrainer:
                     logs["meta/radar_guided_diff_weight_max"] = rain_diff_weight_map.max().detach()
             if rain_weighted_enabled:
                 logs["loss/rain_weighted_reg"] = l_rain.detach()
+            if spatial_gradient_weight > 0:
+                logs["loss/spatial_gradient"] = spatial_gradient_loss.detach()
             if event_map is not None:
                 logs["loss/rain_event"] = event_loss.detach()
             if rain_residual_enabled:
@@ -1143,6 +1204,10 @@ class RainTSNextFrameTrainer:
         radar_map = loss_map[:, : self.radar_c]
         satellite_map = loss_map[:, self.radar_c : self.radar_c + self.satellite_c]
         rain_map, rain_weighted_enabled = build_rain_regression_loss_map(pred_for_loss["rain"], target_gt["rain"])
+        spatial_gradient_raw, spatial_gradient_weight = build_spatial_gradient_loss(
+            pred_for_loss["rain"], target_gt["rain"]
+        )
+        spatial_gradient_loss = spatial_gradient_weight * spatial_gradient_raw
         rain_event_map, event_weight = build_rain_event_loss_map(pred_for_loss["rain"], target_gt["rain"])
 
         l_radar, l_radar_context, l_radar_future = compute_weighted_segment_loss(
@@ -1174,7 +1239,14 @@ class RainTSNextFrameTrainer:
                 rain_delta_loss_map, context_frames, future_frames, context_weight, future_weight
             )
         rain_delta_loss_weighted = rain_residual_delta_weight * rain_delta_loss
-        loss = lw_radar * l_radar + lw_satellite * l_satellite + lw_rain * l_rain + rain_event + rain_delta_loss_weighted
+        loss = (
+            lw_radar * l_radar
+            + lw_satellite * l_satellite
+            + lw_rain * l_rain
+            + rain_event
+            + rain_delta_loss_weighted
+            + spatial_gradient_loss
+        )
 
         zero = torch.zeros((), device=loss_map.device, dtype=loss_map.dtype)
         diff_radar = zero
@@ -1254,6 +1326,8 @@ class RainTSNextFrameTrainer:
                 logs["meta/radar_guided_diff_weight_max"] = rain_diff_weight_map.max().detach()
         if rain_weighted_enabled:
             logs["loss/rain_weighted_reg"] = l_rain.detach()
+        if spatial_gradient_weight > 0:
+            logs["loss/spatial_gradient"] = spatial_gradient_loss.detach()
         if rain_event_map is not None:
             logs["loss/rain_event"] = rain_event.detach()
             logs["loss/rain_event_context"] = rain_event_context.detach()
@@ -1505,6 +1579,11 @@ class RainTSNextFrameTrainer:
             raise ValueError(f"train.next_pred.rollout_branch.weight must be >= 0, got {weight}")
         if weight == 0:
             return None
+        weight_start = float(rollout_cfg.get("weight_start", weight))
+        weight_end = float(rollout_cfg.get("weight_end", weight))
+        ramp_steps = int(rollout_cfg.get("ramp_steps", 0))
+        if weight_start < 0 or weight_end < 0 or ramp_steps < 0:
+            raise ValueError("rollout_branch weight_start/weight_end must be >= 0 and ramp_steps >= 0")
 
         configured_frames = rollout_cfg.get("rollout_frames", None)
         rollout_frames = total_future_frames if configured_frames in (None, "") else int(configured_frames)
@@ -1539,6 +1618,9 @@ class RainTSNextFrameTrainer:
         return {
             "mode": mode,
             "weight": weight,
+            "weight_start": weight_start,
+            "weight_end": weight_end,
+            "ramp_steps": ramp_steps,
             "rollout_frames": rollout_frames,
             "rollout_block_size": rollout_block_size,
             "detach_history": bool(rollout_cfg.get("detach_history", True)),
@@ -1546,6 +1628,12 @@ class RainTSNextFrameTrainer:
             "loss_on": loss_on,
             "delta_loss_enabled": delta_loss_enabled,
             "delta_loss_weight": delta_loss_weight,
+            "lead_weights": [float(value) for value in rollout_cfg.get("lead_weights", [])],
+            "lead_loss_weight": float(rollout_cfg.get("lead_loss_weight", 0.0)),
+            "pod_floor": float(rollout_cfg.get("pod_floor", 0.0)),
+            "pod_floor_weight": float(rollout_cfg.get("pod_floor_weight", 0.0)),
+            "pod_threshold": float(rollout_cfg.get("pod_threshold", 0.01)),
+            "pod_temperature": float(rollout_cfg.get("pod_temperature", 0.02)),
         }
 
 
@@ -1625,7 +1713,8 @@ class RainTSNextFrameTrainer:
                 seed_modalities = self._split_modalities(seed_list[-1])
                 pred_one = dict(pred_one)
                 pred_one["rain"] = self._apply_rain_residual_output(pred_one["rain"], seed_modalities["rain"])
-            pred_one_tensor = self._merge_modalities(pred_one["radar"], pred_one["satellite"], pred_one["rain"])
+            rain_for_history = pred_one.get("rain_rollout", pred_one["rain"])
+            pred_one_tensor = self._merge_modalities(pred_one["radar"], pred_one["satellite"], rain_for_history)
             pred_hist = pred_one_tensor.detach() if detach_history else pred_one_tensor
             if future_modality_forcing is not None:
                 step_start = generated - frame_patch_size
@@ -1658,6 +1747,8 @@ class RainTSNextFrameTrainer:
         future_time: torch.Tensor | None = None,
         future_modalities: dict[str, torch.Tensor] | None = None,
         use_gt_future_modalities: bool = False,
+        future_rain: torch.Tensor | None = None,
+        use_gt_future_rain: bool = False,
         return_rain_delta: bool = False,
     ) -> dict[str, torch.Tensor]:
         if context.ndim != 5:
@@ -1724,6 +1815,21 @@ class RainTSNextFrameTrainer:
                     f"radar_frames={int(radar_future.shape[2])}, satellite_frames={int(satellite_future.shape[2])}, "
                     f"total_future_frames={total_future_frames}"
                 )
+        if use_gt_future_rain:
+            if future_rain is None:
+                raise ValueError("future_rain should be provided when use_gt_future_rain=True.")
+            if future_rain.ndim != 5:
+                raise ValueError(f"future_rain must be [B,C,T,H,W], got {tuple(future_rain.shape)}")
+            if int(future_rain.shape[0]) != int(context.shape[0]):
+                raise ValueError(
+                    "future_rain batch mismatch with context: "
+                    f"context_batch={int(context.shape[0])}, future_rain_batch={int(future_rain.shape[0])}"
+                )
+            if int(future_rain.shape[2]) != total_future_frames:
+                raise ValueError(
+                    "future_rain time length mismatch with total_future_frames: "
+                    f"rain_frames={int(future_rain.shape[2])}, total_future_frames={total_future_frames}"
+                )
 
         remaining = total_future_frames
         context_cur = context
@@ -1734,6 +1840,7 @@ class RainTSNextFrameTrainer:
         pred_satellite: list[torch.Tensor] = []
         pred_rain: list[torch.Tensor] = []
         pred_rain_delta: list[torch.Tensor] = []
+        pred_occurrence_logits: list[torch.Tensor] = []
 
         while remaining > 0:
             if mode == "frame":
@@ -1752,6 +1859,9 @@ class RainTSNextFrameTrainer:
                     "radar": future_modalities["radar"][:, :, produced : produced + chunk],
                     "satellite": future_modalities["satellite"][:, :, produced : produced + chunk],
                 }
+            chunk_future_rain = None
+            if future_rain is not None:
+                chunk_future_rain = future_rain[:, :, produced : produced + chunk]
 
             seed_block = self._build_self_rolled_seed(
                 context=context_cur,
@@ -1788,8 +1898,11 @@ class RainTSNextFrameTrainer:
             pred_satellite.append(pred_block["satellite"])
             pred_rain.append(pred_block["rain"])
             pred_rain_delta.append(raw_rain_delta)
+            if torch.is_tensor(pred_block.get("occurrence_logits")):
+                pred_occurrence_logits.append(pred_block["occurrence_logits"])
 
-            pred_block_tensor = self._merge_modalities(pred_block["radar"], pred_block["satellite"], pred_block["rain"])
+            rain_for_history = pred_block.get("rain_rollout", pred_block["rain"])
+            pred_block_tensor = self._merge_modalities(pred_block["radar"], pred_block["satellite"], rain_for_history)
             pred_hist = pred_block_tensor.detach() if detach_history else pred_block_tensor
             if use_gt_future_modalities:
                 if chunk_future_modalities is None:
@@ -1799,6 +1912,15 @@ class RainTSNextFrameTrainer:
                     chunk_future_modalities["radar"],
                     chunk_future_modalities["satellite"],
                     pred_modalities["rain"],
+                )
+            if use_gt_future_rain:
+                if chunk_future_rain is None:
+                    raise ValueError("chunk_future_rain should be available when use_gt_future_rain=True.")
+                pred_modalities = self._split_modalities(pred_hist)
+                pred_hist = self._merge_modalities(
+                    pred_modalities["radar"],
+                    pred_modalities["satellite"],
+                    chunk_future_rain,
                 )
             context_cur = torch.cat([context_cur, pred_hist], dim=2)
             if torch.is_tensor(context_time_cur):
@@ -1815,6 +1937,8 @@ class RainTSNextFrameTrainer:
         }
         if return_rain_delta:
             output["rain_delta"] = torch.cat(pred_rain_delta, dim=2)
+        if pred_occurrence_logits:
+            output["occurrence_logits"] = torch.cat(pred_occurrence_logits, dim=2)
         return output
 
     def _rollout_predict(
@@ -1911,7 +2035,46 @@ class RainTSNextFrameTrainer:
             gt_delta_abs_mean = gt_delta.abs().mean()
             delta_mean_ratio = pred_delta_abs_mean / gt_delta_abs_mean.clamp_min(1.0e-8)
 
-        rollout_weight = float(rollout_branch_cfg["weight"])
+        weight_start = float(rollout_branch_cfg["weight_start"])
+        weight_end = float(rollout_branch_cfg["weight_end"])
+        ramp_steps = int(rollout_branch_cfg["ramp_steps"])
+        if ramp_steps > 0:
+            progress = min(float(self.global_step) / float(ramp_steps), 1.0)
+            rollout_weight = weight_start + (weight_end - weight_start) * progress
+        else:
+            rollout_weight = weight_end
+
+        lead_weights = rollout_branch_cfg["lead_weights"]
+        lead_loss_weight = float(rollout_branch_cfg["lead_loss_weight"])
+        lead_weighted_loss = torch.zeros((), device=rollout_raw_loss.device, dtype=rollout_raw_loss.dtype)
+        if lead_loss_weight > 0 and lead_weights:
+            rain_pred = pred_rollout["rain"]
+            rain_target = target_slice["rain"].to(device=rain_pred.device, dtype=rain_pred.dtype)
+            weights = torch.ones(int(rain_pred.shape[2]), device=rain_pred.device, dtype=rain_pred.dtype)
+            count = min(len(lead_weights), int(rain_pred.shape[2]))
+            weights[:count] = torch.as_tensor(lead_weights[:count], device=rain_pred.device, dtype=rain_pred.dtype)
+            weights = weights / weights.mean().clamp_min(1.0e-6)
+            lead_weighted_loss = (
+                F.mse_loss(rain_pred, rain_target, reduction="none")
+                * weights.view(1, 1, -1, 1, 1)
+            ).mean()
+            rollout_raw_loss = rollout_raw_loss + lead_loss_weight * lead_weighted_loss
+
+        pod_floor = float(rollout_branch_cfg["pod_floor"])
+        pod_floor_weight = float(rollout_branch_cfg["pod_floor_weight"])
+        pod_floor_loss = torch.zeros((), device=rollout_raw_loss.device, dtype=rollout_raw_loss.dtype)
+        if pod_floor > 0 and pod_floor_weight > 0:
+            threshold = float(rollout_branch_cfg["pod_threshold"])
+            temperature = max(float(rollout_branch_cfg["pod_temperature"]), 1.0e-4)
+            probability = torch.sigmoid((pred_rollout["rain"] - threshold) / temperature)
+            labels = (target_slice["rain"] >= threshold).to(probability.dtype)
+            reduce_dims = (0, 1, 3, 4)
+            soft_pod_by_lead = (probability * labels).sum(dim=reduce_dims) / labels.sum(dim=reduce_dims).clamp_min(1.0)
+            pod_floor_loss = F.relu(
+                torch.as_tensor(pod_floor, device=probability.device) - soft_pod_by_lead
+            ).pow(2).mean()
+            rollout_raw_loss = rollout_raw_loss + pod_floor_weight * pod_floor_loss
+
         rollout_scaled_loss = rollout_raw_loss * rollout_weight
 
         logs = {
@@ -1922,6 +2085,8 @@ class RainTSNextFrameTrainer:
             "meta/rollout_branch_weight": torch.tensor(
                 rollout_weight, device=rollout_raw_loss.device, dtype=rollout_raw_loss.dtype
             ),
+            "loss/rollout_branch_lead_weighted": lead_weighted_loss.detach(),
+            "loss/rollout_branch_pod_floor": pod_floor_loss.detach(),
             "meta/rollout_branch_delta_loss_weight": torch.tensor(
                 delta_loss_weight, device=rollout_raw_loss.device, dtype=rollout_raw_loss.dtype
             ),

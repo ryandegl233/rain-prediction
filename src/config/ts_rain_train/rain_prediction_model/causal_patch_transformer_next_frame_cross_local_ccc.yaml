@@ -1,0 +1,8 @@
+defaults:
+  - causal_patch_transformer_next_frame_cross_local
+  - _self_
+
+# CCC is inserted inside the existing cross-modal conditioner. All added
+# branches are zero-initialized, so an old checkpoint starts at baseline.
+consensus_calibration_enabled: true
+consensus_calibration_bottleneck: 64

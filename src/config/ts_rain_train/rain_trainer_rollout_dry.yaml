@@ -1,0 +1,35 @@
+defaults:
+  - rain_trainer_ccc_frozen_ablation
+  - _self_
+
+rain_prediction_model:
+  consensus_calibration_enabled: false
+
+train:
+  init_model_path: /home/rainpred/RainPrediction/runs/ccc_frozen_ablation_4090_b112aM/without_ccc/checkpoints/checkpoint_0
+  max_steps: 250
+  save_every: 125
+  scheduler:
+    num_training_steps: 1000
+  log:
+    run_comment: rollout_dry_guarded
+  rollout_dry_constraint:
+    enabled: true
+    dry_threshold_mm_min: 0.01
+    error_scale_mm_min: 0.05
+    lead_weights: [1.0, 1.0, 1.25, 1.5]
+    coverage_thresholds_mm_min: [0.01, 0.1, 0.5]
+    strong_threshold_mm_min: 0.1
+    coverage_weight: 0.25
+    strong_weight: 0.1
+    weight: 0.01
+    warmup_steps: 50
+    max_base_loss_ratio: 0.2
+  constraint_selection:
+    csi_tolerance: 0.005
+    pod_tolerance: 0.005
+    strong_mae_relative_tolerance: 0.02
+    strong_intensity_relative_tolerance: 0.02
+
+val:
+  val_duration: 125

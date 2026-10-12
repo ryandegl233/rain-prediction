@@ -1,0 +1,11 @@
+defaults:
+  - gated_modality_rain_trainer
+  - _self_
+
+rain_prediction_model:
+  consensus_calibration_enabled: true
+  consensus_calibration_bottleneck: 64
+
+train:
+  log:
+    run_comment: gated_v1_ccc

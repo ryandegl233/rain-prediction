@@ -81,7 +81,14 @@ class ScaleMetricAccumulator:
         hss_denominator = (hits + misses) * (misses + correct_negatives) + (
             hits + false_alarms
         ) * (false_alarms + correct_negatives)
-        return {"csi": csi, "pod": pod, "far": far, "hss": hss_numerator / max(hss_denominator, 1.0)}
+        f1 = 2.0 * hits / max(2.0 * hits + misses + false_alarms, 1.0)
+        return {
+            "csi": csi,
+            "pod": pod,
+            "far": far,
+            "f1": f1,
+            "hss": hss_numerator / max(hss_denominator, 1.0),
+        }
 
     def result(self) -> list[dict]:
         rows = []

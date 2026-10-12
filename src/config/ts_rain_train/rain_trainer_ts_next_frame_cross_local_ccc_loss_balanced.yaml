@@ -1,0 +1,57 @@
+defaults:
+  - rain_trainer_ts_next_frame_cross_local_ccc
+  - _self_
+
+accelerator:
+  project_config:
+    total_limit: 16
+
+# Balanced rainfall loss profile: preserve small-cell boundaries without letting
+# the temporal term or weak-rain event term inflate the whole rain field.
+train:
+  log:
+    run_comment: cross_local_ccc_loss_balanced
+  loss:
+    mode: enhanced
+    regression_type: charbonnier
+    charbonnier_eps: 0.002
+    rain_residual:
+      enabled: true
+      delta_weight: 0.75
+      clamp_output: false
+      min_value: 0.0
+      loss_type: charbonnier
+      smooth_eps: 0.002
+    temporal_diff:
+      enabled: true
+      weight_init: 0.0
+      weight_max: 0.35
+      warmup_steps: 3000
+      apply_on: rain
+      loss_type: charbonnier
+      smooth_eps: 0.001
+      radar_guided:
+        enabled: true
+        alpha: 2.0
+        echo_beta: 0.5
+        max_weight: 4.0
+        eps: 1.0e-6
+    rain_region_weight:
+      enabled: true
+      alpha: 1.0
+      r0: 0.05
+      gamma: 0.7
+    spatial_gradient:
+      enabled: true
+      weight: 0.08
+      loss_type: charbonnier
+      smooth_eps: 0.001
+    rain_event_aux:
+      enabled: true
+      type: bce
+      thresholds: [0.1, 0.2, 0.5]
+      thresholds_in_physical: false
+      weight: 0.05
+      logit_scale: 4.0
+      focal_gamma: 2.0
+      focal_alpha: 0.25

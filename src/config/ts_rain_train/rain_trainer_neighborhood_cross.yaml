@@ -1,0 +1,14 @@
+defaults:
+  - rain_trainer_rollout_dry
+  - _self_
+
+rain_prediction_model:
+  _target_: src.networks.time_series.causal_patch_transformer_neighborhood.RainCausalPatchTransformerNeighborhood
+  neighborhood_radius: 1
+  neighborhood_query_chunk_size: 256
+  neighborhood_recompute: true
+
+train:
+  init_model_path: /home/rainpred/RainPrediction/runs/rollout_dry_pro6000_0Q6klO/dry_guarded/checkpoints/checkpoint_1
+  log:
+    run_comment: neighborhood_cross

@@ -2,10 +2,16 @@ import torch
 
 from src.residual_diffusion_stage.losses import (
     ChannelMoments,
+    deterministic_correction_loss,
     diffusion_residual_loss,
     residual_autoencoder_loss,
 )
-from src.residual_diffusion_stage.models import ConditionalDiffusion, LatentNormalizer, ResidualAutoencoder
+from src.residual_diffusion_stage.models import (
+    ConditionalDiffusion,
+    DeterministicResidualCorrector,
+    LatentNormalizer,
+    ResidualAutoencoder,
+)
 
 
 def _diffusion_config() -> dict:
@@ -93,6 +99,46 @@ def test_diffusion_training_and_sampling_shapes() -> None:
     assert torch.isfinite(sampled).all()
 
 
+def test_deterministic_corrector_starts_from_coarse_baseline() -> None:
+    model = DeterministicResidualCorrector(
+        {"history_channels": 12, "corrector_base_channels": 8, "initial_gate_logit": -2.2}
+    )
+    coarse = torch.randn(1, 1, 2, 32, 32)
+    history = torch.randn(1, 12, 3, 32, 32)
+    outputs = model(coarse, history)
+    assert outputs["mu"].shape == coarse.shape
+    assert outputs["gate"].shape == coarse.shape
+    torch.testing.assert_close(outputs["center"], coarse)
+    assert 0.09 < outputs["gate"].mean().item() < 0.11
+
+
+def test_diffusion_accepts_deterministic_structure_condition() -> None:
+    cfg = {**_diffusion_config(), "use_deterministic_condition": True}
+    model = ConditionalDiffusion(cfg)
+    latent = torch.randn(1, 4, 2, 8, 8)
+    coarse = torch.randn(1, 1, 2, 32, 32)
+    history = torch.randn(1, 12, 3, 32, 32)
+    mu = torch.randn_like(coarse)
+    gate = torch.sigmoid(torch.randn_like(coarse))
+    outputs = model(
+        latent,
+        coarse,
+        history,
+        return_outputs=True,
+        deterministic_residual=mu,
+        residual_gate=gate,
+    )
+    assert outputs["predicted_x0"].shape == latent.shape
+    sampled = model.ddim_sample(
+        tuple(latent.shape),
+        coarse,
+        history,
+        deterministic_residual=mu,
+        residual_gate=gate,
+    )
+    assert sampled.shape == latent.shape
+
+
 def test_diffusion_residual_loss_rewards_correct_amplitude_and_direction() -> None:
     target = torch.randn(2, 1, 2, 8, 8)
     noise_loss = torch.tensor(0.2)
@@ -113,3 +159,21 @@ def test_diffusion_residual_loss_rewards_correct_amplitude_and_direction() -> No
     assert wrong_loss > correct_loss
     assert wrong_terms["bias"] > 0
     assert wrong_terms["correlation"] < 0
+
+
+def test_deterministic_correction_loss_penalizes_dry_false_alarm() -> None:
+    target = torch.zeros(1, 1, 1, 4, 4)
+    coarse = torch.zeros_like(target)
+    gate = torch.ones_like(target)
+    mu = torch.full_like(target, 0.1)
+    loss, terms = deterministic_correction_loss(
+        mu,
+        target,
+        coarse,
+        mu,
+        gate,
+        {"active_threshold": 0.01, "soft_csi_thresholds": [0.01]},
+    )
+    assert torch.isfinite(loss)
+    assert terms["dry_false_alarm"].item() > 0
+    assert terms["dry_gate"].item() == 1.0

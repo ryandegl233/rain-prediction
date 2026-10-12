@@ -75,8 +75,9 @@ PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
 `CUDA_VISIBLE_DEVICES=1` exposes the physical RTX 4090 as logical `cuda:0`
 inside the process. The two commands never update the coarse model and never
 insert ground-truth future radar or satellite fields into its rollout history.
-Diffusion validation logs coarse/final L1 and CSI at 0.1, 0.3, and 0.5 using
-the same thresholds as the coarse trainer. `best.pt` is selected by final L1.
+Diffusion validation logs deterministic L1/CSI together with fixed-seed ensemble CRPS,
+threshold-weighted CRPS, Brier score, reliability and spread-skill statistics.
+`best.pt` is selected by ensemble CRPS; deterministic L1 remains a diagnostic.
 
 After diffusion training, run the residual-scale ablation. Every scale reuses
 the same coarse forecast and the same four-member diffusion ensemble:
@@ -99,3 +100,80 @@ It includes overall and per-lead MAE, RMSE, bias, CSI, POD, FAR, and HSS. The
 recommended scale maximizes mean CSI among candidates whose MAE is no worse
 than the scale-zero coarse baseline. The report also lists the best scale for
 each individual metric.
+
+## v3: deterministic mean, gate, and stochastic residual
+
+`config_v3_mu_gate_delta.yaml` separates the residual into a deterministic
+correction and stochastic uncertainty:
+
+```text
+deterministic = coarse + gate * mu
+delta_target = target - deterministic
+member_k = deterministic + stochastic_scale * delta_k
+```
+
+The corrector is initialized exactly at the frozen coarse baseline. Its loss is
+computed in physical `mm/min` space and includes active-rain L1, dry-region
+false-alarm control, residual bias, and soft CSI at `0.01/0.1/0.2/0.5`.
+Diffusion then learns only `delta_target`, with `mu` and `gate` supplied as
+additional spatial conditions. Before diffusion training starts, the frozen AE
+is recalibrated on `delta_target` latents. Those per-channel statistics are
+stored in every v3 diffusion checkpoint and reused during evaluation.
+The v5 configuration additionally applies bounded tiered weights to decoded
+residuals at `0.1/0.5/1.0 mm/min`, emphasizing heavy-rain corrections without
+letting them dominate the full field. Evaluation now centers the sampled
+residual ensemble by default, so its mean is exactly the deterministic center;
+use `--no-center-ensemble` only for an explicitly uncentered ablation.
+
+Train the corrector first:
+
+```bash
+cd /home/rainpred/RainPrediction
+CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1 \
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+/home/rainpred/miniconda3/envs/rainpred/bin/python \
+  -m src.residual_diffusion_stage.train \
+  --stage corrector \
+  --stage-config src/residual_diffusion_stage/config_v3_mu_gate_delta.yaml \
+  --coarse-checkpoint runs/next_frame_cross_local_finetune/2026-08-29/22-03-48_cross_local_finetune/checkpoints/checkpoint_12 \
+  --output-dir runs/residual_diffusion_cross_local_v3
+```
+
+Train the stochastic residual diffusion from scratch because its target differs
+from v1/v2:
+
+```bash
+cd /home/rainpred/RainPrediction
+CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1 \
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+/home/rainpred/miniconda3/envs/rainpred/bin/python \
+  -m src.residual_diffusion_stage.train \
+  --stage diffusion \
+  --stage-config src/residual_diffusion_stage/config_v3_mu_gate_delta.yaml \
+  --coarse-checkpoint runs/next_frame_cross_local_finetune/2026-08-29/22-03-48_cross_local_finetune/checkpoints/checkpoint_12 \
+  --ae-checkpoint runs/residual_diffusion_cross_local_v1/ae/final.pt \
+  --corrector-checkpoint runs/residual_diffusion_cross_local_v3/corrector/best.pt \
+  --output-dir runs/residual_diffusion_cross_local_v3
+```
+
+Evaluate deterministic and probabilistic performance with a 16-member ensemble:
+
+```bash
+cd /home/rainpred/RainPrediction
+CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1 \
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+/home/rainpred/miniconda3/envs/rainpred/bin/python \
+  -m src.residual_diffusion_stage.evaluate_mu_gate_diffusion \
+  --stage-config src/residual_diffusion_stage/config_v3_mu_gate_delta.yaml \
+  --coarse-checkpoint runs/next_frame_cross_local_finetune/2026-08-29/22-03-48_cross_local_finetune/checkpoints/checkpoint_12 \
+  --ae-checkpoint runs/residual_diffusion_cross_local_v1/ae/final.pt \
+  --corrector-checkpoint runs/residual_diffusion_cross_local_v3/corrector/best.pt \
+  --diffusion-checkpoint runs/residual_diffusion_cross_local_v3/diffusion/best.pt \
+  --output-dir runs/residual_diffusion_cross_local_v3
+```
+
+The evaluation report contains per-lead and pooled `CSI/POD/FAR/F1/HSS`, plus
+`CRPS/CRPSS`, threshold-weighted CRPS, `Brier/BSS`, reliability bins, and
+spread-skill diagnostics. Scores are calculated after converting rain back to
+`mm/min`. The centered ensemble is the primary probabilistic result; use
+`--no-center-ensemble` only as a separately reported uncentered ablation.

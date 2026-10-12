@@ -1,0 +1,77 @@
+defaults:
+  - rain_trainer_ts_next_frame_cross_local_ccc_loss_balanced
+  - _self_
+
+accelerator:
+  gradient_accumulation_plugin:
+    num_steps: 8
+  project_config:
+    total_limit: 16
+
+dataset:
+  augmentation:
+    temporal_reverse_prob: 0.0
+  train:
+    batch_size: 1
+    aug_temporal_reverse_prob: 0.0
+  val:
+    batch_size: 1
+    shuffle: false
+    iter_index_mode: sequential
+    aug_enabled: false
+    num_workers: 0
+    persistent_workers: false
+
+train:
+  init_model_path: /home/rainpred/RainPrediction/runs/next_frame_cross_local_finetune/2026-10-05/02-27-49_cross_local_ccc_smoke_250/checkpoints/checkpoint_4
+  resume_path: null
+  validate_before_training: true
+  validate_only: false
+  max_steps: 1000
+  save_every: 250
+  optim:
+    lr: 1.0e-5
+  scheduler:
+    # This LambdaLR implementation takes a multiplier, not an absolute LR.
+    min_lr: 0.3
+  log:
+    run_comment: coarse_evolution
+  next_pred:
+    rollout_branch:
+      enabled: true
+      weight: 0.4
+      weight_start: 0.2
+      weight_end: 0.4
+      ramp_steps: 500
+      rollout_frames: 4
+      mode: frame
+      rollout_block_size: 1
+      detach_history: true
+      use_gt_future_modalities: false
+      loss_on: rain
+      delta_loss:
+        enabled: false
+        weight: 0.0
+  loss:
+    regression_type: mse
+    rain_residual:
+      delta_weight: 1.0
+      loss_type: mse
+    rain_region_weight:
+      alpha: 2.0
+      r0: 0.05
+      gamma: 0.7
+    temporal_diff:
+      weight_init: 0.1
+      weight_max: 0.35
+      warmup_steps: 500
+      loss_type: mse
+    spatial_gradient:
+      weight: 0.05
+    rain_event_aux:
+      enabled: false
+
+val:
+  val_duration: 250
+  max_val_iters: 60
+  fixed_comparison: /home/rainpred/RainPrediction/runs/ccc_fixed_comparison_20261005/comparison.json
