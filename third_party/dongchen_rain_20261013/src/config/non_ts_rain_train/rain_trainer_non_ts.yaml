@@ -1,0 +1,126 @@
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+defaults:
+  # --- Models, dataset, and other configurations --- #
+  - rain_prediction_model: unet # plain_transformer, dpt_vitb_rn50_384
+  - _self_
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+accelerator:
+  _target_: accelerate.Accelerator
+  mixed_precision: bf16
+  log_with: tensorboard
+  dataloader_config:
+    _target_: accelerate.utils.DataLoaderConfiguration
+    split_batches: False
+    even_batches: False
+    non_blocking: True
+    dispatch_batches: None
+    use_seedable_sampler: true
+    use_stateful_dataloader: true
+  project_config:
+    _target_: accelerate.utils.ProjectConfiguration
+    # ==================
+    # placeholder, changed by code
+    project_dir: runs/rain_non_ts/
+    logging_dir: runs/rain_non_ts/tensorboard
+    # ==================
+    total_limit: 3
+    automatic_checkpoint_naming: true
+  gradient_accumulation_plugin:
+    _target_: accelerate.utils.GradientAccumulationPlugin
+    num_steps: 1
+    adjust_scheduler: true
+    sync_with_dataloader: false
+    sync_each_batch: false
+
+ema:
+  beta: 0.999
+  update_after_step: 1000
+  update_every: 1
+
+dataset:
+  n_past: 2
+  n_futures: 2
+  img_size: 256
+  time_interval: 30
+  data_dir: /home/JieYiZhu/Dataset/interval_${dataset.time_interval}
+  #data_original/zihan_processed/interval_${dataset.time_interval}
+
+  train:
+    _target_: src.dataset.rain_ts_dataset.get_dataloader
+    use_wids: true
+    index_file: /home/JieYiZhu/Dataset/wds_interval_30/train/shardindex.json
+    time_interval: ${dataset.time_interval}
+    n_past: ${dataset.n_past}
+    n_futures: ${dataset.n_futures}
+    stack_data: true
+    img_resize: ${dataset.img_size}
+    expand_rain: true
+    batch_size: 16
+    shuffle: true
+    num_workers: 12
+    persistent_workers: true
+
+  val:
+    _target_: src.dataset.rain_ts_dataset.get_dataloader
+    use_wids: true
+    index_file: /home/JieYiZhu/Dataset/wds_interval_30/train/shardindex.json
+    n_past: ${dataset.n_past}
+    n_futures: ${dataset.n_futures}
+    stack_data: true
+    img_resize: ${dataset.img_size}
+    expand_rain: true
+    batch_size: 8
+    shuffle: false
+    num_workers: 2
+
+train:
+  max_steps: 100_000
+  proj_dir: runs/rain_non_ts
+  save_every: 1000
+  resume_path:
+  ema_load_path:
+  max_grad_norm: 0.3
+  grad_check: false
+
+  optim:
+    _target_: torch.optim.AdamW
+    _partial_: true
+    lr: 4.0e-4
+    weight_decay: 1.0e-6
+    foreach: true
+    # _target_: src.utils.optim.get_muon_optimizer
+    # _partial_: true
+    # lr: 1.0e-3
+    # weight_decay: 0.1
+    # ns_steps: 6
+    # ns_diff_abc: true
+    # adamw_betas:
+    #   - 0.95
+    #   - 0.99
+    # adamw_wd: 0.
+
+  scheduler:
+    _target_: src.utils.train_utils.lr_scheduler.get_cosine_schedule_reduced_with_warmup
+    _partial_: true
+    num_warmup_steps: 0
+    num_training_steps: ${train.max_steps}
+    num_cycles: 1
+    reduced_factor: 2
+    min_lr: 1.0e-5
+
+  log:
+    run_comment: rain_train_pasts_n=${dataset.n_past}_future_n=${dataset.n_futures}
+    log_with_time: True
+    visualize_every: 500
+    log_every: 10
+
+  debug: true
+
+val:
+  val_duration: 200
+  max_val_iters: 10 # val only `max_val_iters` batches

@@ -1,0 +1,70 @@
+model:
+  latent_channels: 8
+  history_channels: 12
+  corrector_base_channels: 16
+  maximum_correction: 2.0
+  initial_gate_logit: -2.8
+  corrector_use_lead_embedding: true
+  maximum_forecast_leads: 8
+  corrector_use_occurrence_head: true
+  initial_occurrence_logit: -2.2
+  robust_occurrence:
+    minimum_keep: 0.1
+    occurrence_power: 1.5
+    logit_temperature: 1.0
+    protection_threshold: 0.05
+    protection_temperature: 0.01
+    rain_norm_mean: null
+    rain_norm_std: null
+
+corrector_loss:
+  global_l1_weight: 1.0
+  active_l1_weight: 3.0
+  dry_false_alarm_weight: 4.0
+  residual_l1_weight: 0.5
+  bias_weight: 0.5
+  dry_gate_weight: 0.2
+  soft_csi_weight: 0.1
+  active_threshold: 0.01
+  soft_csi_thresholds: [0.01, 0.03, 0.05, 0.1, 0.2, 0.5]
+  soft_csi_temperature: 0.02
+  graded_thresholds: [0.1, 0.5, 1.0]
+  graded_weights: [1.0, 1.5, 2.5]
+  graded_l1_weight: 0.5
+  occurrence_positive_weight: 3.0
+  occurrence_focal_gamma: 2.0
+  occurrence_loss_weight: 0.1
+  local_support_scales: [3, 5]
+  local_support_loss_weight: 0.1
+  false_alarm_support_scale: 5
+  outside_support_false_alarm_weight: 2.0
+  weak_rain_cap: 0.05
+  weak_dry_mass_weight: 2.0
+  light_rain_upper: 0.1
+  light_rain_l1_weight: 1.0
+  strong_rain_threshold: 0.1
+  strong_rain_retention_weight: 1.0
+  occurrence_brier_weight: 0.25
+  metric_thresholds: [0.01, 0.03, 0.05, 0.1, 0.2, 0.5, 1.0]
+
+training:
+  corrector_epochs: 15
+  corrector_learning_rate: 3.0e-5
+  minimum_learning_rate: 1.0e-6
+  weight_decay: 1.0e-2
+  gradient_clip_norm: 1.0
+  batch_size: 4
+  gradient_accumulation_steps: 1
+  max_train_batches: 1500
+  max_val_batches: 60
+  seed: 2025
+  early_stopping_patience: 5
+  early_stopping_min_epochs: 8
+
+selection:
+  mae_weight: 1.0
+  low_threshold_far_weight: 0.02
+  mean_csi_penalty_weight: 0.01
+  strong_csi_penalty_weight: 0.005
+  low_threshold: 0.01
+  strong_threshold: 0.5

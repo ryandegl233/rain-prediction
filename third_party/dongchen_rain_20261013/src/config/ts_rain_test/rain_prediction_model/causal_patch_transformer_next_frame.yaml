@@ -1,0 +1,43 @@
+_target_: src.networks.time_series.causal_patch_transformer_next_frame.RainCausalPatchTransformerNextFrame
+in_channels: 12
+out_channels: 1
+radar_out_channels: 1
+satellite_out_channels: 10
+rain_out_channels: 1
+input_size: 448
+patch_size: 16
+frame_patch_size: 2
+
+encoder_type: patch
+encoder_spatial_downsample_stages: 4
+encoder_temporal_downsample_stages: 1
+encoder_causal: true
+encoder_conv_style: wan_factorized
+use_modality_mask_token: true
+stem_channels: 384
+stem_pad_mode: reflect
+
+dim: 384
+depth: 6
+num_heads: 8
+mlp_ratio: 4.0
+dropout: 0.0
+drop_path: 0.0
+max_frames: 16
+decoder_base_channels: 128
+use_spatial_rope_2d: true
+use_temporal_rope_1d: true
+rope_theta_spatial: 10000.0
+rope_theta_temporal: 2000.0
+rope_fraction_spatial: 1.0
+rope_fraction_temporal: 1.0
+
+decoder_type: 3d
+decoder_pad_mode: reflect
+decoder_upsample_mode: nearest_conv
+decoder_k_size: 7
+decoder_causal: true
+decoder_condition_mode: none
+decoder_output_mode: pixels
+use_time_embedding: true
+activation_checkpoint: true

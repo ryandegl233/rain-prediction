@@ -1,0 +1,23 @@
+defaults:
+  - rain_trainer_ts_next_frame
+  - _self_
+
+hydra:
+  run:
+    dir: ./runs/next_frame_fixed_origin/${now:%Y-%m-%d}/${now:%H-%M-%S}_${train.log.run_comment}
+
+accelerator:
+  project_config:
+    project_dir: runs/next_frame_fixed_origin/
+    logging_dir: runs/next_frame_fixed_origin/tensorboard
+
+train:
+  resume_path: null
+  log:
+    run_comment: next_frame_fixed_origin
+  next_pred:
+    rollout_branch:
+      use_gt_future_modalities: false
+
+val:
+  rollout_use_gt_future_modalities: false

@@ -1,0 +1,4 @@
+src/** -text
+.gitattributes text eol=lf
+README.md text eol=lf
+SOURCE_MANIFEST.json text eol=lf

@@ -1,0 +1,11 @@
+data/
+pylog124M/
+__pycache__/
+logs/
+venv/
+wandb/ 
+output/ 
+.venv/
+submit.ipynb
+aztool/
+dion.egg-info/

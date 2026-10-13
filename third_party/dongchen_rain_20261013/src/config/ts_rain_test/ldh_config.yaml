@@ -1,0 +1,85 @@
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+
+defaults:
+  - rain_prediction_model: time_conditioned_advection
+  - _self_
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+# 注意：这里已经删除了会引发报错的 rain_prediction_model 覆盖参数
+
+accelerator:
+  _target_: accelerate.Accelerator
+  mixed_precision: bf16
+  log_with: tensorboard
+  dataloader_config:
+    _target_: accelerate.utils.DataLoaderConfiguration
+    split_batches: False
+    even_batches: False
+    non_blocking: True
+    dispatch_batches: None
+    use_seedable_sampler: true
+    use_stateful_dataloader: false
+  project_config:
+    _target_: accelerate.utils.ProjectConfiguration
+    project_dir: runs/time_series_prediction/
+    logging_dir: runs/time_series_prediction/tensorboard
+    total_limit: 3
+    automatic_checkpoint_naming: true
+  gradient_accumulation_plugin:
+    _target_: accelerate.utils.GradientAccumulationPlugin
+    num_steps: 1
+    adjust_scheduler: true
+    sync_with_dataloader: false
+    sync_each_batch: false
+
+dataset:
+  n_past: 2
+  n_futures: 2
+  img_size: 256
+  time_interval: 10
+  center_latlon: [26.0, 106.0]
+  patch_size: 256
+
+  val:
+    _target_: src.dataset.rain_ts_litdata_swinnet.get_dataloader
+    data_dirs:
+      - /home/rainpred/RainPrediction/data/litdata_train_2023_2025/litdata_interval_10/202604
+    center_latlon: ${dataset.center_latlon}
+    time_interval: ${dataset.time_interval}
+    n_past: ${dataset.n_past}
+    n_futures: ${dataset.n_futures}
+    img_resize: ${dataset.img_size}
+    patch_size: ${dataset.patch_size}
+    batch_size: 4
+    num_workers: 12
+    shuffle: false
+    is_train: false
+    min_rain: 0.1
+    min_ratio: 0.03
+    cache_dir: "__cache__test_202509"
+
+# 👇 就是这个 test 模块刚才被误删了
+test:
+  strong_threshold: 0
+  bounds: [0, 0.01, 0.1, 0.2, 0.5, 10]
+  cumulative: true
+  max_test_batches: -1
+  vis:
+    enabled: true
+    max_samples: 5
+    only_strong_samples: true
+    out_dir: outputs/test_vis_swinnet_cls
+    file_prefix: cls_vis
+    n_past_frames: 2
+    n_future_frames: 5
+    dpi: 200
+
+val:
+  tolerance_px: 0
+
+checkpoints:
+  checkpoint_path: /home/rainpred/RainPrediction/runs/time_conditioned_advection/2026-05-28/14-48-48_stage1_time_conditioned_advection/checkpoints/checkpoint_500

@@ -1,0 +1,2592 @@
+{
+  "source_archive": "rain.zip",
+  "archive_sha256": "b831c5658579279fc47dffd11e1973273b2ea5571cc0a4ad7278987775562c02",
+  "import_date": "2026-10-13",
+  "repository_base_commit": "c25ec88f6da94916f882170e7cdb5fa01aaa9048",
+  "file_count": 367,
+  "python_syntax_checked": 322,
+  "excluded_file_count": 919,
+  "excluded_categories": [
+    "__MACOSX",
+    "._*",
+    ".DS_Store",
+    "__pycache__",
+    "*.pyc",
+    "*.pyo",
+    ".git",
+    ".idea"
+  ],
+  "path_mapping": "rain/<path> -> src/<path> within this independent snapshot",
+  "files": [
+    {
+      "path": "src/tools/rain_station_excel_to_shard_db.py",
+      "archive_entry": "rain/tools/rain_station_excel_to_shard_db.py",
+      "bytes": 69138,
+      "sha256": "9167bd51ee693a3813fa1a20bb8840b1c82b14bdc07dd9fcff85f16348b82e9b",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tools/realtime_stream_infer.py",
+      "archive_entry": "rain/tools/realtime_stream_infer.py",
+      "bytes": 5484,
+      "sha256": "e90fec5357c3b16d52ed8ed603cd299ab80e225101b8bc8cb52a3a8288394e9e",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tools/check_rain_learning.py",
+      "archive_entry": "rain/tools/check_rain_learning.py",
+      "bytes": 16331,
+      "sha256": "2a19bf1aaaefb9a45e5db69fe2d4c7c579782212785b386f39e01932cac02892",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tools/audit_rain_month.py",
+      "archive_entry": "rain/tools/audit_rain_month.py",
+      "bytes": 8006,
+      "sha256": "3d928e600517483c3116b35779079c3ee6487534d2fd5911f733e411d3e0ae06",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tools/optical_flow_satellite.py",
+      "archive_entry": "rain/tools/optical_flow_satellite.py",
+      "bytes": 7350,
+      "sha256": "a4a6085b560507a31666cf7a07758470b34798e208f8cdcacd7a693e9957f8a4",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tools/generate_rain_station_mask.py",
+      "archive_entry": "rain/tools/generate_rain_station_mask.py",
+      "bytes": 1211,
+      "sha256": "3b305559ff8d30fd7bd8274dd925096c5d3e64d1d4954520f01b67bdc0fd84c0",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tools/realtime_nc_to_stream.py",
+      "archive_entry": "rain/tools/realtime_nc_to_stream.py",
+      "bytes": 6929,
+      "sha256": "b4b8c9d9cf8b457db41459b974736a75e82614f8f6aa51ec807992010a2972d1",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tools/check_rain_label_gain.py",
+      "archive_entry": "rain/tools/check_rain_label_gain.py",
+      "bytes": 3863,
+      "sha256": "e1a8093f926f0aff635c6f5dc1e1dd01db343d14918e4ef235b0001118418def",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tools/check_rain_shards.py",
+      "archive_entry": "rain/tools/check_rain_shards.py",
+      "bytes": 658,
+      "sha256": "df5125f8252e2c0a7f2ec5f6af1d56caac4d6354d45cffe404326daffcd2a7fa",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tools/rain_station_excels_to_db.py",
+      "archive_entry": "rain/tools/rain_station_excels_to_db.py",
+      "bytes": 25232,
+      "sha256": "30b4d83d9ebc5aececa860cac215241e3c7bf985ff8caac6f65a025b4ca271db",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tools/diagnose_rain_transitions.py",
+      "archive_entry": "rain/tools/diagnose_rain_transitions.py",
+      "bytes": 13838,
+      "sha256": "c174200629866508e793a10ea6c5f9ea7424d2096e2713dee4536b803b153542",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tools/wids_index.py",
+      "archive_entry": "rain/tools/wids_index.py",
+      "bytes": 13190,
+      "sha256": "5d14d820d58eb46e67b44aa42d1ee065c5e2c7f8b24e5ef4825fc608c1d6d0ee",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tools/check_multimodal_geo_alignment.py",
+      "archive_entry": "rain/tools/check_multimodal_geo_alignment.py",
+      "bytes": 11285,
+      "sha256": "b1e436817fd82ff5824b338b24dfd935276d016a64fa6b988aecb1d4dab4663a",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tools/optical_flow_interpolator.py",
+      "archive_entry": "rain/tools/optical_flow_interpolator.py",
+      "bytes": 6570,
+      "sha256": "bdf6465813ba52bd2adf9b1f5ef9502d46b12f412708609897c659a719eac338",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tools/ai_model_invoke.py",
+      "archive_entry": "rain/tools/ai_model_invoke.py",
+      "bytes": 10517,
+      "sha256": "5477ed736d80a6163fd6135021f30dc1be40fcbba19ce877704b6b7877f4a68f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tools/demo_process_ai_predict_rainfall.py",
+      "archive_entry": "rain/tools/demo_process_ai_predict_rainfall.py",
+      "bytes": 3303,
+      "sha256": "c2c8eff2ae34ef679aebb788ab45e4e13e591f6e8a0489ed43b9cd4b91730021",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tools/plot_rain_stations_hull.py",
+      "archive_entry": "rain/tools/plot_rain_stations_hull.py",
+      "bytes": 1620,
+      "sha256": "67a730466c8b96bcb9b369aacb88da4fd7508ffb3659a3cf24393722bf48b691",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/dataset/read_nc_file_mapped.py",
+      "archive_entry": "rain/dataset/read_nc_file_mapped.py",
+      "bytes": 32607,
+      "sha256": "4cdf886ebfe355cad1ef114622f3957e6f8902dda4e93166a089b89e2a7e95b0",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/dataset/read_nc_file.py",
+      "archive_entry": "rain/dataset/read_nc_file.py",
+      "bytes": 1682,
+      "sha256": "4d0cd14487120ce0856ac8a87bdcb3672563ebdfda7d97948c0a0b4e17f7ea1f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/dataset/read_nc_file_mapped_v2.py",
+      "archive_entry": "rain/dataset/read_nc_file_mapped_v2.py",
+      "bytes": 9055,
+      "sha256": "52eef3b486d7b8a626eba60e01f2ae79e6b4afdd6aa76f579af63a3cabe6b9eb",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/dataset/dataset_tar.py",
+      "archive_entry": "rain/dataset/dataset_tar.py",
+      "bytes": 4180,
+      "sha256": "ed10e3d6587066a4f6e8a85a1e2c804a7e0753c92a57a620da7cd606cb67a677",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/dataset/geo_utils.py",
+      "archive_entry": "rain/dataset/geo_utils.py",
+      "bytes": 16331,
+      "sha256": "859b7ee2d997a618d1825582e70047e8fd21e62de8f5bef074f305a72cb8676e",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/dataset/rain_ts_litdata_tempo_v3.py",
+      "archive_entry": "rain/dataset/rain_ts_litdata_tempo_v3.py",
+      "bytes": 58422,
+      "sha256": "8118f35bb461cb272954333a72eef3e1bcdd5827551dc54b5f285b26f361b7cc",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/dataset/rain_ts_litdata_rain_delta_filter.py",
+      "archive_entry": "rain/dataset/rain_ts_litdata_rain_delta_filter.py",
+      "bytes": 19874,
+      "sha256": "bcf649810b0ceb161eda45c2970d8346456bd2485efd949f753dd300ac252ead",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/dataset/litdata_base.py",
+      "archive_entry": "rain/dataset/litdata_base.py",
+      "bytes": 17211,
+      "sha256": "0972e77f7c8bd8161dde9d986a21c4456a7b8ea76e0d1f804d23594e1a567cb5",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/dataset/rain_ts_dataset_swinnet.py",
+      "archive_entry": "rain/dataset/rain_ts_dataset_swinnet.py",
+      "bytes": 82411,
+      "sha256": "ec1fa399e37426d1dad6e3e38a9e0841c344a8680fe1e1acd5900c2c8e135296",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/dataset/utils.py",
+      "archive_entry": "rain/dataset/utils.py",
+      "bytes": 966,
+      "sha256": "0026c662708b2373c1ae292042bc4a4d36486b8c9f64e291c3b97ff2b658389f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/dataset/rain_ts_litdata_tempo_v4.py",
+      "archive_entry": "rain/dataset/rain_ts_litdata_tempo_v4.py",
+      "bytes": 58422,
+      "sha256": "8118f35bb461cb272954333a72eef3e1bcdd5827551dc54b5f285b26f361b7cc",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/dataset/rain_station_mapped.py",
+      "archive_entry": "rain/dataset/rain_station_mapped.py",
+      "bytes": 33814,
+      "sha256": "108755d9f352e9cccd30d6aedd5131bd0a4cc8dd10c9d1aab9875300eb2c43ec",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/dataset/rain_ts_litdata.py",
+      "archive_entry": "rain/dataset/rain_ts_litdata.py",
+      "bytes": 45274,
+      "sha256": "a5e927a2db3223e6d1c59ebb8145a686272eb337bd8c3b22d1f7164b0a880f27",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/dataset/rain_ts_litdata_swinnet.py",
+      "archive_entry": "rain/dataset/rain_ts_litdata_swinnet.py",
+      "bytes": 15620,
+      "sha256": "bddc1e90646f8631dcf6171fb46df047c15a1527696e91ece28af47c7375d07d",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/dataset/rain_ts_augmentation.py",
+      "archive_entry": "rain/dataset/rain_ts_augmentation.py",
+      "bytes": 8928,
+      "sha256": "5fe7d54f3441bf63ab833ab37612e4c8429d30adfb058af42a90a1477770391b",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/test_minute_window.py",
+      "archive_entry": "rain/tests/test_minute_window.py",
+      "bytes": 5106,
+      "sha256": "784ed4919235bf8d4d7b1c38c5021da753aaf32a2f958290854628bbe06f0de0",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/test_fm_rollout_kv_cache.py",
+      "archive_entry": "rain/tests/test_fm_rollout_kv_cache.py",
+      "bytes": 3033,
+      "sha256": "25c727775fbe35f433d7bef99e24bc476dc2671bf7d913a44a0ba8b849f03cff",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/test_rain_interfaces.py",
+      "archive_entry": "rain/tests/test_rain_interfaces.py",
+      "bytes": 5895,
+      "sha256": "7114a78ace2c64fcc1e06d09f239425ff541751be717652326f011ddc98c72d9",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/test_swinnet_cls.py",
+      "archive_entry": "rain/tests/test_swinnet_cls.py",
+      "bytes": 21558,
+      "sha256": "fef43d8c236274115e6ab811449acb6d2f417a499628c50b68b0cd3e19c19b27",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/test_time_windows_complete.py",
+      "archive_entry": "rain/tests/test_time_windows_complete.py",
+      "bytes": 5330,
+      "sha256": "8e0b3d3035fcc973bbfcd1805dcb6b7706da851c4b9d6f9e8f2f948902368312",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/test_rain_map_opening_erosion.py",
+      "archive_entry": "rain/tests/test_rain_map_opening_erosion.py",
+      "bytes": 301,
+      "sha256": "b0b5c3d0c652ebffccbd0c168cd3cea82f49deaa69024b0ca860b9245458b51a",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/test_duckdb.py",
+      "archive_entry": "rain/tests/test_duckdb.py",
+      "bytes": 14196,
+      "sha256": "63517198e0142feb6845f7e8ba046c9dd53ddc49d85ebe7ed103565037af4636",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/test_fm_rollout_high_order_solver.py",
+      "archive_entry": "rain/tests/test_fm_rollout_high_order_solver.py",
+      "bytes": 2297,
+      "sha256": "19da81886d6903adb8e99afc847eb28d01b8b2502d6eeb7a5ed29497577699bf",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/test_only_rain_db_save.py",
+      "archive_entry": "rain/tests/test_only_rain_db_save.py",
+      "bytes": 19502,
+      "sha256": "46e9caafb908b4cfbf83048fcdbd3f662a137dce30790829479ee9eb6f310ede",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/test_comprehensive_features.py",
+      "archive_entry": "rain/tests/test_comprehensive_features.py",
+      "bytes": 7444,
+      "sha256": "f0001b0ba19726f4484c8d7c95da68cb7449741dc48234a35e4f29a2536f515c",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/rain_ts_next_frame_trainer_tempo_v4.py",
+      "archive_entry": "rain/tests/rain_ts_next_frame_trainer_tempo_v4.py",
+      "bytes": 188248,
+      "sha256": "f14e77da93738d8b8c1863ea813de51d678e9a9a0df6b678de07772f5659e4be",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/unified_precipitation_demo.py",
+      "archive_entry": "rain/tests/unified_precipitation_demo.py",
+      "bytes": 9584,
+      "sha256": "ef130e03a9c10e7e18fac8780f5607507ec9023aade924935ce6c4e28ece1288",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/test_5_hours.py",
+      "archive_entry": "rain/tests/test_5_hours.py",
+      "bytes": 7848,
+      "sha256": "e12dde2a626afb2375162c8493b7a49fe08b35528be35ffa080e5e48b7098f3f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/inference_demo.py",
+      "archive_entry": "rain/tests/inference_demo.py",
+      "bytes": 36620,
+      "sha256": "44184db21ec30a4180dac1c114cd662722a21820878c2b4c39fffdb06b4705bb",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/test_minute_simple.py",
+      "archive_entry": "rain/tests/test_minute_simple.py",
+      "bytes": 3010,
+      "sha256": "1585a9f2eb440ac4e7429248a701f1dda71ec0ff72b3b7eb8ed1c9ecda3e1cfa",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/gated_checkpoint.py",
+      "archive_entry": "rain/utils/gated_checkpoint.py",
+      "bytes": 2571,
+      "sha256": "676528a572bbb3210555d93b87fea2b035cba3870791cb9497f61ccd4ea78836",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/data_preprocessors/merge_metadata.py",
+      "archive_entry": "rain/data_preprocessors/merge_metadata.py",
+      "bytes": 3417,
+      "sha256": "d08fd7d0101e58009c4729dd1c95074ff59ddeea2d6e00c3f3a29621a1c469df",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/data_preprocessors/all_to_figs.py",
+      "archive_entry": "rain/data_preprocessors/all_to_figs.py",
+      "bytes": 42411,
+      "sha256": "00277c07d1321c89cacb8f79110fe93a7dd2706e1db0b482639d1fe4fe510a59",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/data_preprocessors/figs_to_video.py",
+      "archive_entry": "rain/data_preprocessors/figs_to_video.py",
+      "bytes": 6165,
+      "sha256": "e9730ccaefbdef2319b2cba96384f1ef94b0ec24ac5c7d648ee735a3d39bb574",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/unet.py",
+      "archive_entry": "rain/networks/unet.py",
+      "bytes": 21503,
+      "sha256": "e05d6464cf098db62efb31a7fc2ec704688336c4afd086e0a8e6686d480c3119",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/SwinNet.py",
+      "archive_entry": "rain/networks/SwinNet.py",
+      "bytes": 12450,
+      "sha256": "8bb154f8fef6b9cf38810d52e36aae7d016e7fba15f9d76970296f33edabd78b",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/transformer.py",
+      "archive_entry": "rain/networks/transformer.py",
+      "bytes": 15639,
+      "sha256": "09a628b98326a0d1f4d9c7be4359cb5e565c0f1bd14bf5711cd82891acab9f59",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/causal_time_unet.py",
+      "archive_entry": "rain/networks/causal_time_unet.py",
+      "bytes": 6155,
+      "sha256": "2734beebe9a31bb8b529f9fd4e7e0b891f35db6e0255431759207b28be46d825",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/time_conditioned_advection.py",
+      "archive_entry": "rain/networks/time_conditioned_advection.py",
+      "bytes": 9686,
+      "sha256": "54057ccdceacbd485d00519f407e4c26babc55de6597cd4d288409470ef03bbc",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/gated_modality_rain/__init__.py",
+      "archive_entry": "rain/gated_modality_rain/__init__.py",
+      "bytes": 1,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/gated_modality_rain/model.py",
+      "archive_entry": "rain/gated_modality_rain/model.py",
+      "bytes": 47296,
+      "sha256": "1f62855e95a35e5f9008aad0f7044f58b1c08b5f999dd43b8900dba9a64be9fb",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/gated_modality_rain/trainer.py",
+      "archive_entry": "rain/gated_modality_rain/trainer.py",
+      "bytes": 122829,
+      "sha256": "6c18169b9fb322f74e7f28b66dd8b38a3ace201a95a6cc3ef1f6f1de9f390f81",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/examination/output_nc.py",
+      "archive_entry": "rain/examination/output_nc.py",
+      "bytes": 17262,
+      "sha256": "250a954a8a1c775938cda6a4288017ddf9c440aa542b03de83edc5b2dbd48bd3",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/examination/visualize_rain_interp_from_cfg.py",
+      "archive_entry": "rain/examination/visualize_rain_interp_from_cfg.py",
+      "bytes": 6671,
+      "sha256": "7bfa0b99b0f9efe4d6df0f8ab942e72e486f30b770447056724e4772bd7570f0",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/residual_diffusion_stage/train_v3_gpu1.sh",
+      "archive_entry": "rain/residual_diffusion_stage/train_v3_gpu1.sh",
+      "bytes": 1769,
+      "sha256": "5b84a77b816e1d170938806db5cc7b9dcac0733638eda780643c142468be943c",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/residual_diffusion_stage/ablate_residual_scale.py",
+      "archive_entry": "rain/residual_diffusion_stage/ablate_residual_scale.py",
+      "bytes": 14964,
+      "sha256": "e3031dc582badd209e49d8e0b62144804899ecb8e660050c0fadb58620979142",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/residual_diffusion_stage/metrics.py",
+      "archive_entry": "rain/residual_diffusion_stage/metrics.py",
+      "bytes": 16242,
+      "sha256": "3e7a0a60ca59b105acbee69d0541a9da74109e10cd87e2c5fd0e9b4146e21c53",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/residual_diffusion_stage/train_v4_robust_corrector_gpu1.sh",
+      "archive_entry": "rain/residual_diffusion_stage/train_v4_robust_corrector_gpu1.sh",
+      "bytes": 1177,
+      "sha256": "f2bb7970abdde780f1ebd1a922e467470d7b4a752fda494efff7368c7e3e2289",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/residual_diffusion_stage/train_v6_robust_diffusion_gpu1.sh",
+      "archive_entry": "rain/residual_diffusion_stage/train_v6_robust_diffusion_gpu1.sh",
+      "bytes": 1428,
+      "sha256": "9275a253ce882eb940ebfa54270fc1d29092a148d052eb979c72bf4db8febb39",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/residual_diffusion_stage/models.py",
+      "archive_entry": "rain/residual_diffusion_stage/models.py",
+      "bytes": 20773,
+      "sha256": "c1c9e9060685d90794ba9bf31aed5e5069a7379f56979b157714a99d0eb2a49a",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/residual_diffusion_stage/config.yaml",
+      "archive_entry": "rain/residual_diffusion_stage/config.yaml",
+      "bytes": 1307,
+      "sha256": "4d0f7f0e96cd075370b292ce5b7a3cb09c1d1f7a2899ae647cb25339f1cb5c3f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/residual_diffusion_stage/__init__.py",
+      "archive_entry": "rain/residual_diffusion_stage/__init__.py",
+      "bytes": 159,
+      "sha256": "c7a3c7a99bcb6a957c2139b7f6091809fa812da055f97a3bf31852f1b48eee60",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/residual_diffusion_stage/config_v2.yaml",
+      "archive_entry": "rain/residual_diffusion_stage/config_v2.yaml",
+      "bytes": 1130,
+      "sha256": "f7a08a7a8df8e602388188d1ef0af243a83b46e548150d8bd3b497605030a5b1",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/residual_diffusion_stage/diagnose_rollout_far.py",
+      "archive_entry": "rain/residual_diffusion_stage/diagnose_rollout_far.py",
+      "bytes": 6535,
+      "sha256": "5b7c6b24e6e9320701d0ee6c353cb9f2b9705b95e529c2b45387b2f53fff4463",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/residual_diffusion_stage/README.md",
+      "archive_entry": "rain/residual_diffusion_stage/README.md",
+      "bytes": 8815,
+      "sha256": "35243682ba97763c09548a987188cb601aabe88d93114fe25aafe9bc297d40e6",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/residual_diffusion_stage/config_v4_robust_occurrence.yaml",
+      "archive_entry": "rain/residual_diffusion_stage/config_v4_robust_occurrence.yaml",
+      "bytes": 1856,
+      "sha256": "47aa0360a88c2fd3f50daaee9f7a51186f6f75efb22882360031ce9824e4435a",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/residual_diffusion_stage/train.py",
+      "archive_entry": "rain/residual_diffusion_stage/train.py",
+      "bytes": 40072,
+      "sha256": "a77cdec7b6098b37851575f0605e8c7ed3c1fc36be6996d6ac28e1aa6582132e",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/residual_diffusion_stage/visualize_mu_gate_diffusion.py",
+      "archive_entry": "rain/residual_diffusion_stage/visualize_mu_gate_diffusion.py",
+      "bytes": 13777,
+      "sha256": "4bf8d83481e39cda56f3068daab9b028395fe5c8c03c98373f77d325572dea3b",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/residual_diffusion_stage/losses.py",
+      "archive_entry": "rain/residual_diffusion_stage/losses.py",
+      "bytes": 15077,
+      "sha256": "b7477ffaed2527593c4cf01bbfe62ee208ea0a6e1e7e6f7fbfe74a7f46aea802",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/residual_diffusion_stage/evaluate_mu_gate_diffusion.py",
+      "archive_entry": "rain/residual_diffusion_stage/evaluate_mu_gate_diffusion.py",
+      "bytes": 11097,
+      "sha256": "7f3538b43519ae640d53fc0756bb758e33f9915a50c45829f56c6b6919f0b6f6",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/residual_diffusion_stage/robust_occurrence_corrector.py",
+      "archive_entry": "rain/residual_diffusion_stage/robust_occurrence_corrector.py",
+      "bytes": 6445,
+      "sha256": "6543698c51a3e360aea14ae84c801fb1d2df3a7406eeee28d54053d0336ac0f9",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/residual_diffusion_stage/config_v3_mu_gate_delta.yaml",
+      "archive_entry": "rain/residual_diffusion_stage/config_v3_mu_gate_delta.yaml",
+      "bytes": 2715,
+      "sha256": "97359fa6216fab8679f1751f5abbfc5aca3d690922b6e6147192809579826b83",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/residual_diffusion_stage/train_robust_corrector.py",
+      "archive_entry": "rain/residual_diffusion_stage/train_robust_corrector.py",
+      "bytes": 17205,
+      "sha256": "22f27eed3b050d510412b4353d4caa712b8f672631ac721aa0c26165ff9e7052",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/trainer/rain_trainer_non_ts.py",
+      "archive_entry": "rain/trainer/rain_trainer_non_ts.py",
+      "bytes": 32958,
+      "sha256": "3088f06fd2155c2905d04da3ecb1c273655f339af7be9825b1f5d55a0903bd84",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/trainer/spatial_frontend_trainer.py",
+      "archive_entry": "rain/trainer/spatial_frontend_trainer.py",
+      "bytes": 21818,
+      "sha256": "0afe1ab587868819f6b16737bbbe7c86ae01a97dd22de08b3209b00988b5d015",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/trainer/rain_trainer_ts_stage2_ode.py",
+      "archive_entry": "rain/trainer/rain_trainer_ts_stage2_ode.py",
+      "bytes": 13854,
+      "sha256": "9bb80d3ea379640a8249086d070a4bbc06d496b71db6506cee7d6edbf56a4f54",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/trainer/rain_trainer_ts_next_frame_transfer.py",
+      "archive_entry": "rain/trainer/rain_trainer_ts_next_frame_transfer.py",
+      "bytes": 10152,
+      "sha256": "7fc58c3400d958a25abdf293e5f2bb8d78d8ffa7970eeda0228eb62a1ad15d07",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/trainer/rain_trainer_ts_swinet_cls.py",
+      "archive_entry": "rain/trainer/rain_trainer_ts_swinet_cls.py",
+      "bytes": 41652,
+      "sha256": "e76860ff0fea4879ec691f26268af8fdb49164c1b8a0a30d7a914a6e758cf04a",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/trainer/rain_trainer_ts_next_frame.py",
+      "archive_entry": "rain/trainer/rain_trainer_ts_next_frame.py",
+      "bytes": 134224,
+      "sha256": "dde3d2786b339292717dc69f60453db201633777ab7b6fe03ddea56094b21f58",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/trainer/train_trainer_5min.py",
+      "archive_entry": "rain/trainer/train_trainer_5min.py",
+      "bytes": 135937,
+      "sha256": "359838e6aa2920dc525ebd0bbae955997c2acdf50f00f5b44cedec1855cd4b26",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/trainer/rain_trainer_ts_next_frame_stage2.py",
+      "archive_entry": "rain/trainer/rain_trainer_ts_next_frame_stage2.py",
+      "bytes": 16660,
+      "sha256": "7e1a7e4d2af8492dc2e6e1eb7abf8ddb0909d2da002a44142a4938bbd3d97cf7",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/trainer/rain_trainer_ts_diffusion.py",
+      "archive_entry": "rain/trainer/rain_trainer_ts_diffusion.py",
+      "bytes": 62413,
+      "sha256": "ee5a6d637aba371b6384217c04221fc2721d812113e51fe15f75fd05b9849c70",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/ts_rain_test/ldh_config.yaml",
+      "archive_entry": "rain/config/ts_rain_test/ldh_config.yaml",
+      "bytes": 2381,
+      "sha256": "12f1ee88e029710d42bb0320a1c3d0caf434870300068d6f0b13106412f5bfc1",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/ts_rain_test/rain_test_ts_swinnet_cls.yaml",
+      "archive_entry": "rain/config/ts_rain_test/rain_test_ts_swinnet_cls.yaml",
+      "bytes": 4567,
+      "sha256": "f1a13b6fb06b4e1c3d3040ea13f1a428477a9d82b8ed899a08de32ef39fcfc9f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/non_ts_rain_train/rain_trainer_non_ts.yaml",
+      "archive_entry": "rain/config/non_ts_rain_train/rain_trainer_non_ts.yaml",
+      "bytes": 3173,
+      "sha256": "cd80fb2d51d89bcad7db73947d09f7bbc9d0234154fcf681c71aa18c5231e0b9",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/ts_rain_train/rain_trainer_ts_diffusion.yaml",
+      "archive_entry": "rain/config/ts_rain_train/rain_trainer_ts_diffusion.yaml",
+      "bytes": 6115,
+      "sha256": "89eafc3371984ad02cd96e69802741d98e59f033c0cbb5d84bf9f13b98923348",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/ts_rain_train/rain_trainer_ts_next_frame_fixed_origin.yaml",
+      "archive_entry": "rain/config/ts_rain_train/rain_trainer_ts_next_frame_fixed_origin.yaml",
+      "bytes": 496,
+      "sha256": "e93e89328bc735ecce2424ef790234a035cb4c42e3ced115eb70ce32b249efc8",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/ts_rain_train/rain_trainer_ts_stage2_ode.yaml",
+      "archive_entry": "rain/config/ts_rain_train/rain_trainer_ts_stage2_ode.yaml",
+      "bytes": 3444,
+      "sha256": "6f4c01f8ee4de0222bbf3a5d5d970992a9509eb0895ab2b232568a8a0fadb8a7",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/ts_rain_train/rain_trainer_ts_next_frame_stage2.yaml",
+      "archive_entry": "rain/config/ts_rain_train/rain_trainer_ts_next_frame_stage2.yaml",
+      "bytes": 5715,
+      "sha256": "f8ff63e009335fdfda2a80b43721cc6e23fc3fc2269bc4c26c364ff84d93efd9",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/ts_rain_train/rain_train_ts_swinnet_all_data.yaml",
+      "archive_entry": "rain/config/ts_rain_train/rain_train_ts_swinnet_all_data.yaml",
+      "bytes": 5251,
+      "sha256": "89828089e37f476d05a15c753fdea18b06c1db2dcc12f50dd9020485ea96be26",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/ts_rain_train/rain_trainer_ts.yaml",
+      "archive_entry": "rain/config/ts_rain_train/rain_trainer_ts.yaml",
+      "bytes": 3177,
+      "sha256": "1f2bc64101a6079446a5b9294c8de1da1a44db803b855f67004d31cc41af160e",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/ts_rain_train/rain_trainer_ts_next_frame.yaml",
+      "archive_entry": "rain/config/ts_rain_train/rain_trainer_ts_next_frame.yaml",
+      "bytes": 10399,
+      "sha256": "90da63ec252e946452e63495985214194f1fb99d1302034682be3c1db28871df",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/ts_rain_train/rain_trainer_ts_next_frame_delta_filter.yaml",
+      "archive_entry": "rain/config/ts_rain_train/rain_trainer_ts_next_frame_delta_filter.yaml",
+      "bytes": 10372,
+      "sha256": "f76e522c24e7bffe6a60f03ca405ca1009b300741a86b7d8def3dadcd197bd77",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/tools/test_check_rain_learning.py",
+      "archive_entry": "rain/tests/tools/test_check_rain_learning.py",
+      "bytes": 1502,
+      "sha256": "26ea91c131b035e092fcc5ad66832347d008498afce93dca9fec39ca29f5c071",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/tools/test_plot_ragion.py",
+      "archive_entry": "rain/tests/tools/test_plot_ragion.py",
+      "bytes": 1194,
+      "sha256": "9e531af7414009e621f2fee650a94ee05679e39a1fb9c438c853d042f0b6a366",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/tools/test_diagnose_rain_transitions.py",
+      "archive_entry": "rain/tests/tools/test_diagnose_rain_transitions.py",
+      "bytes": 2024,
+      "sha256": "0a0f3e3c4c4973164585657afa24d2a4d2c18ec8ba429a90306de49dd95ccf6d",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/dataset/test_rain_ts_litdata_bytes.py",
+      "archive_entry": "rain/tests/dataset/test_rain_ts_litdata_bytes.py",
+      "bytes": 3526,
+      "sha256": "fccf61d5637b15fef0ae14b6a9abe1437ccba003d3e397a76b5b3e61f39838d1",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/dataset/test_rain_ts_augmentation.py",
+      "archive_entry": "rain/tests/dataset/test_rain_ts_augmentation.py",
+      "bytes": 5048,
+      "sha256": "1190cb9df35cdc77e27671aa2bc1f45c44f3379133715e29dac307ba06a433e8",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/dataset/test_rain_ts_litdata_swinnet_bad_value.py",
+      "archive_entry": "rain/tests/dataset/test_rain_ts_litdata_swinnet_bad_value.py",
+      "bytes": 791,
+      "sha256": "180582828fb631b53ffe25c77273313c2fb5f411fb0081c9a4cb9331a1275635",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/dataset/test_rain_ts_litdata_sequence_plot.py",
+      "archive_entry": "rain/tests/dataset/test_rain_ts_litdata_sequence_plot.py",
+      "bytes": 19695,
+      "sha256": "bf93adb48dab6801b22a49bf75c85e7b5fda2b445aaf1ae322219a38bd1af8eb",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/dataset/test_rain_ts_litdata_window_index.py",
+      "archive_entry": "rain/tests/dataset/test_rain_ts_litdata_window_index.py",
+      "bytes": 4412,
+      "sha256": "625d7f1325b0bb638d467d4ffb6dd6ec5e8380543dc90a80f970c812eb6f6319",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/dataset/test_rain_ts_litdata_rain_ratio_filter_plot.py",
+      "archive_entry": "rain/tests/dataset/test_rain_ts_litdata_rain_ratio_filter_plot.py",
+      "bytes": 6864,
+      "sha256": "bc0b91f773c0bf481a351b8c9e27f656703a098d277e5a81a71370d766b57f72",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/utils/test_plot.py",
+      "archive_entry": "rain/tests/utils/test_plot.py",
+      "bytes": 899,
+      "sha256": "f5266a26e5fda2f5f0497f571bec198359ccc075295f459d4d51de907054781e",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/utils/test_plot_region_multimodal.py",
+      "archive_entry": "rain/tests/utils/test_plot_region_multimodal.py",
+      "bytes": 5059,
+      "sha256": "88ceb873305e290023663e1cbe19bc657278a077c4de40f4e609342ec8da2460",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/networks/test_patchgan3d.py",
+      "archive_entry": "rain/tests/networks/test_patchgan3d.py",
+      "bytes": 2037,
+      "sha256": "8da475a9345256ed96ebee8cf522f75c10c272fe59d97fd48bce975d0c0e27d8",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/networks/test_multimodal_spatial_frontend.py",
+      "archive_entry": "rain/tests/networks/test_multimodal_spatial_frontend.py",
+      "bytes": 9120,
+      "sha256": "cef9c008b87cb6c3a5bf9781265226d285a0739fcc55e70df7e1666af776b4c0",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/networks/test_gan_losses.py",
+      "archive_entry": "rain/tests/networks/test_gan_losses.py",
+      "bytes": 4169,
+      "sha256": "3652e3cc4316aa7ff3228754ba764f58e0a07b0978456917b834e9fc59f0ea29",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/causal_forcing/test_causal_forcing_fm_alignment.py",
+      "archive_entry": "rain/tests/causal_forcing/test_causal_forcing_fm_alignment.py",
+      "bytes": 3214,
+      "sha256": "65e3e2217051c742d8b3d89d612cefa3cbb7c3ed18668edc4bb69943e72f024f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/gated_modality_rain/test_framework_isolation.py",
+      "archive_entry": "rain/tests/gated_modality_rain/test_framework_isolation.py",
+      "bytes": 9373,
+      "sha256": "60f557f8e1d7b85b2c8b100bd0b89ea596dad0eb70194671bbf0fdc8faf5dafa",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/examination/test_output_nc.py",
+      "archive_entry": "rain/tests/examination/test_output_nc.py",
+      "bytes": 4825,
+      "sha256": "001543de1b45ec44d60e0072ef6a6fabf903423a0317ffe31fd8e85e5f0054a8",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/examination/test_cfg_train_val_iterable_samples.py",
+      "archive_entry": "rain/tests/examination/test_cfg_train_val_iterable_samples.py",
+      "bytes": 4512,
+      "sha256": "5b07d0ddf67de67cf4da8adf76d42f02f1e55185f09d0b06117237b4aa425780",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/examination/test_rain_100_frames_gif.py",
+      "archive_entry": "rain/tests/examination/test_rain_100_frames_gif.py",
+      "bytes": 4765,
+      "sha256": "0e8b37850b4d250cb440e395d021869d7252134aa9d34b394883910c70cd0b46",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/time_series/test_spatial_modality_gate.py",
+      "archive_entry": "rain/tests/time_series/test_spatial_modality_gate.py",
+      "bytes": 12109,
+      "sha256": "6c5975bc4f0e563475393a0f89a81a42daa5037a5495e52f4d55ba96695e3e1c",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/time_series/test_causal_patch_transformer_next_frame.py",
+      "archive_entry": "rain/tests/time_series/test_causal_patch_transformer_next_frame.py",
+      "bytes": 15607,
+      "sha256": "279d99c19c4cc7b0e3e64d8a97fb2ba5cd4a3c962aeb856fa51ba6f2017f684b",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/residual_diffusion_stage/test_metrics.py",
+      "archive_entry": "rain/tests/residual_diffusion_stage/test_metrics.py",
+      "bytes": 1853,
+      "sha256": "28f697d7e484d5659990d17c5cafe2384d124be41dfe5fdd44c044e4848db97a",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/residual_diffusion_stage/test_robust_occurrence_corrector.py",
+      "archive_entry": "rain/tests/residual_diffusion_stage/test_robust_occurrence_corrector.py",
+      "bytes": 3070,
+      "sha256": "9f6419fa5c29c0e50402258ddccedb3f8e783ec05777b17d1ce4555625f8c67d",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/residual_diffusion_stage/test_models.py",
+      "archive_entry": "rain/tests/residual_diffusion_stage/test_models.py",
+      "bytes": 6147,
+      "sha256": "80ef67e0fe01138eab99892ec8bf2faf225bf6358c2945f159694c6bf8d7e6a2",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/residual_diffusion_stage/test_ablate_residual_scale.py",
+      "archive_entry": "rain/tests/residual_diffusion_stage/test_ablate_residual_scale.py",
+      "bytes": 2022,
+      "sha256": "de3effb0f8bf1f3b188ee934a23f6247f104608f9af50be03462182d5bf61dc2",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/modules/test_reconstruction_causal.py",
+      "archive_entry": "rain/tests/modules/test_reconstruction_causal.py",
+      "bytes": 1275,
+      "sha256": "0a79d3d9899811c0c136f08daf0467684ec4f4c96a894277b69007e0fa632e0e",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/trainer/test_gated_modality_rain_trainer.py",
+      "archive_entry": "rain/tests/trainer/test_gated_modality_rain_trainer.py",
+      "bytes": 12480,
+      "sha256": "8a1cc4ff50232c93a69c54c1c17b2fe2b19960c0c1344cf09b421613ec0c2828",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/trainer/test_rain_trainer_ts_next_frame.py",
+      "archive_entry": "rain/tests/trainer/test_rain_trainer_ts_next_frame.py",
+      "bytes": 37719,
+      "sha256": "d563e00776030629eaafe820074afbe63e9ce99b7bd00ef7d5c308fbaf36c725",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/trainer/test_next_frame_rain_only_rollout.py",
+      "archive_entry": "rain/tests/trainer/test_next_frame_rain_only_rollout.py",
+      "bytes": 10868,
+      "sha256": "42de6708d16a52b0bcb0357bc6cc8727fa230e94560e11cbcb4d599660bc35e8",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/trainer/test_rain_trainer_ts_diffusion_val_metrics.py",
+      "archive_entry": "rain/tests/trainer/test_rain_trainer_ts_diffusion_val_metrics.py",
+      "bytes": 5664,
+      "sha256": "afb5239ad40051e0901ce70a6b6700d4b12632cb00cac7b9594b50c8f8734d82",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/trainer/test_next_frame_transfer.py",
+      "archive_entry": "rain/tests/trainer/test_next_frame_transfer.py",
+      "bytes": 5543,
+      "sha256": "ab0d4ec333a4425dd77d65cf64ad706cdc1db0700c782d0e68551645d54315d8",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/trainer/rain_ts_next_frame_trainer_tempo_v4.py",
+      "archive_entry": "rain/tests/trainer/rain_ts_next_frame_trainer_tempo_v4.py",
+      "bytes": 188248,
+      "sha256": "f14e77da93738d8b8c1863ea813de51d678e9a9a0df6b678de07772f5659e4be",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/trainer/test_rain_trainer_ts_next_frame_stage2.py",
+      "archive_entry": "rain/tests/trainer/test_rain_trainer_ts_next_frame_stage2.py",
+      "bytes": 3085,
+      "sha256": "5fe3ff8d3d16f6a48620d350a87b38d8e3804988dc6ac7f8c6a9614c38d2b8cb",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/trainer/test_spatial_frontend_trainer.py",
+      "archive_entry": "rain/tests/trainer/test_spatial_frontend_trainer.py",
+      "bytes": 3777,
+      "sha256": "b184fa2fc9fc7098ebc7aca72df47d969be33e13e637ee3e2169ef1fab9577fb",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/tests/trainer/test_next_frame_performance_audit.py",
+      "archive_entry": "rain/tests/trainer/test_next_frame_performance_audit.py",
+      "bytes": 4592,
+      "sha256": "08a54284cdee6a0b68254a9fc57d6de9ebf5f7556a8c6e18f56c78ef3d6fc95d",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/config_utils/to_dataclass.py",
+      "archive_entry": "rain/utils/config_utils/to_dataclass.py",
+      "bytes": 2389,
+      "sha256": "41bf5be914fdcedc4751a35fde21b2a79f83627a813d7ef8e77cd0cdba621f6d",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/config_utils/__init__.py",
+      "archive_entry": "rain/utils/config_utils/__init__.py",
+      "bytes": 2840,
+      "sha256": "58c4b7f70abc9a0078d660624eb4077e93b98873eb83a7180880d7e0e6369993",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/config_utils/to_container.py",
+      "archive_entry": "rain/utils/config_utils/to_container.py",
+      "bytes": 8285,
+      "sha256": "5744a710236a63c4e34f31996d57b2ecdf963a36a7aa1ae415b3d834fd79e8cd",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/config_utils/dict_config.py",
+      "archive_entry": "rain/utils/config_utils/dict_config.py",
+      "bytes": 6225,
+      "sha256": "6680ad9bd222e139928aa03afa043a8d2546c9b7c93999a04fe9ebf8d743e1db",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/visualization/plot.py",
+      "archive_entry": "rain/utils/visualization/plot.py",
+      "bytes": 3963,
+      "sha256": "a0346856a40f9b2ef75fe0d63fdb2389d5172003416eb3ff78fa9a6549f39a04",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/visualization/color.py",
+      "archive_entry": "rain/utils/visualization/color.py",
+      "bytes": 4152,
+      "sha256": "2f4d6453d36d95b694c163c77133222b424d577c238de81e8b7044b2647dbbe0",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/visualization/plot_ragion.py",
+      "archive_entry": "rain/utils/visualization/plot_ragion.py",
+      "bytes": 28719,
+      "sha256": "83db78dbe296cde2086661025e5d8ed566a9cd35086487d74867e1fa888453a1",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/visualization/rain_region_gif.py",
+      "archive_entry": "rain/utils/visualization/rain_region_gif.py",
+      "bytes": 9257,
+      "sha256": "7beb5987795ae19a5b666b798afade9d68ea649dd1afdc7b20244cd934b0c6e8",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/visualization/plot_region_multimodal.py",
+      "archive_entry": "rain/utils/visualization/plot_region_multimodal.py",
+      "bytes": 40593,
+      "sha256": "9772ee86a85e9effef799b0ae6cf377361eace81ccd583338a43aeb129ea2bc3",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/network_utils/pack.py",
+      "archive_entry": "rain/utils/network_utils/pack.py",
+      "bytes": 420,
+      "sha256": "d7faed95f322e171a46d20c0ef7d7c395a31b182066585c132c3bd8eaeaa7a92",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/network_utils/shaping.py",
+      "archive_entry": "rain/utils/network_utils/shaping.py",
+      "bytes": 17811,
+      "sha256": "f9a1d2f434845068fe23d07dd226acffc0d8e91a9b8a10e460c472ce01ef0936",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/network_utils/__init__.py",
+      "archive_entry": "rain/utils/network_utils/__init__.py",
+      "bytes": 928,
+      "sha256": "e536325b877abf110db3ba4611fd00f4b3cd4e72674bc8c532cd6cbacf2e89d3",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/network_utils/numerical_check.py",
+      "archive_entry": "rain/utils/network_utils/numerical_check.py",
+      "bytes": 2210,
+      "sha256": "bc5b5659cecd4fa8a3c009168b93d98f231039f6a9100d2058fa160eb66db9ad",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/network_utils/perf_utils.py",
+      "archive_entry": "rain/utils/network_utils/perf_utils.py",
+      "bytes": 4455,
+      "sha256": "8c68ab809df95ba770b96d2bb8d555879abd016de8dee654e68679aad658bd0f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/network_utils/compile.py",
+      "archive_entry": "rain/utils/network_utils/compile.py",
+      "bytes": 3324,
+      "sha256": "7aba5fc972468629622b6c3ba9e1abf4a6049144f9d7d66b8f70421a7c8e715a",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/network_utils/warmups.py",
+      "archive_entry": "rain/utils/network_utils/warmups.py",
+      "bytes": 594,
+      "sha256": "cebe4f0d9f64a928e17e9a85b24c5323651f2035d99e15687c86ca085122239a",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/network_utils/network_loading.py",
+      "archive_entry": "rain/utils/network_utils/network_loading.py",
+      "bytes": 23024,
+      "sha256": "136e5e8831ed4ccfedad4fa23b95eddd510b2772dfa6ddb982df71586d3a8ee3",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/network_utils/attrs.py",
+      "archive_entry": "rain/utils/network_utils/attrs.py",
+      "bytes": 1816,
+      "sha256": "49a78404c9ad1462554142cc1ef3787381dfd541c2224470e50b2de9151d4aac",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/network_utils/Dtensor.py",
+      "archive_entry": "rain/utils/network_utils/Dtensor.py",
+      "bytes": 2272,
+      "sha256": "9da81b706d3f97ea581b56bab247f17785c7c84e95b5ac2cc36d6de0cec2d74f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/metrics/aggregation.py",
+      "archive_entry": "rain/utils/metrics/aggregation.py",
+      "bytes": 8341,
+      "sha256": "585958d412cd3adf92ddfa0640f1806e680fe777436dfb85dfea84cf984b9ea0",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/metrics/compute_metrics_new.py",
+      "archive_entry": "rain/utils/metrics/compute_metrics_new.py",
+      "bytes": 17124,
+      "sha256": "c7e9226d0760bb71178c62638831b416b3890c72f1e63cd8c7a67712791589bd",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/metrics/__init__.py",
+      "archive_entry": "rain/utils/metrics/__init__.py",
+      "bytes": 140,
+      "sha256": "451a1409e27a5934cb6f8db9250d1ba1fa1edd1acd09f502ee29c2bc0e33ac80",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/metrics/metric.py",
+      "archive_entry": "rain/utils/metrics/metric.py",
+      "bytes": 16871,
+      "sha256": "b0ed693697db628e35e866b2d1d26612a444e4b4fd6c6f6df949f61d8ef2900a",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/metrics/compute_metrics_cls.py",
+      "archive_entry": "rain/utils/metrics/compute_metrics_cls.py",
+      "bytes": 3655,
+      "sha256": "67497aae357cca1e49ae6f1d0e4faeac86dd4df17534fef95bb2402302d8698d",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/__init__.py",
+      "archive_entry": "rain/utils/transport/__init__.py",
+      "bytes": 29,
+      "sha256": "fc1237f88dd05899f6b3538ea18909ab968eec99b4990aefc9e8c41e14d77992",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/io/read_img.py",
+      "archive_entry": "rain/utils/io/read_img.py",
+      "bytes": 7033,
+      "sha256": "afc380322e52131aa418934ebd344b738c436899bc231391d7a6156256ebf89d",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/io/__init__.py",
+      "archive_entry": "rain/utils/io/__init__.py",
+      "bytes": 33,
+      "sha256": "a04c9bb740cbd0b00c6ca2635b7ee5832c70178a862374ac85edb5c2cc4f148e",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/mars.py",
+      "archive_entry": "rain/utils/optim/mars.py",
+      "bytes": 11362,
+      "sha256": "bc5457c9a32e810d88bf29210a0e8f6f84b306e0fa55bb463aa39c427b1df083",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/muon_triton.py",
+      "archive_entry": "rain/utils/optim/muon_triton.py",
+      "bytes": 19033,
+      "sha256": "4afb7c63b120fc785c901beae8dd810973d98e46c8b421dfa44024a4b2550a5f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/sana_came.py",
+      "archive_entry": "rain/utils/optim/sana_came.py",
+      "bytes": 33560,
+      "sha256": "bfc659170f973353064b86f6c6903ba73e0a1aa17e5966757225aec74861ea55",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/kron_mars.py",
+      "archive_entry": "rain/utils/optim/kron_mars.py",
+      "bytes": 25516,
+      "sha256": "865011ce51955eef05ac3a80a1d6fa47631c0d52e45b851ef8669f5bc4e5b0be",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/muon_fused.py",
+      "archive_entry": "rain/utils/optim/muon_fused.py",
+      "bytes": 35696,
+      "sha256": "c32dc281f0590faf193ded499f043ec17d4f6d795e06d168e410159fc3e53f5e",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/soap.py",
+      "archive_entry": "rain/utils/optim/soap.py",
+      "bytes": 21794,
+      "sha256": "c4b18427ad0b0688a16cd080a1567f9c1578954b81ae1c9233dd03dce4db9c09",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/__init__.py",
+      "archive_entry": "rain/utils/optim/__init__.py",
+      "bytes": 4263,
+      "sha256": "bb53e716c7c106d604576273905582043864dee2f3949899af15c050cb19a630",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/muon_mclip.py",
+      "archive_entry": "rain/utils/optim/muon_mclip.py",
+      "bytes": 13346,
+      "sha256": "fc4364e6b300aba45cc2f6a94e5a91f7811658b49a25eaf642f104e0cef17538",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/came.py",
+      "archive_entry": "rain/utils/optim/came.py",
+      "bytes": 6046,
+      "sha256": "f717332532b60fffbfa26d7f555f6dcd701beb72f15243248d22bf614c05c574",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/spectral_ball_fused.py",
+      "archive_entry": "rain/utils/optim/spectral_ball_fused.py",
+      "bytes": 12591,
+      "sha256": "b7ff9bdf12fa2711985a5eba2031ee11f9aa6708d784af9c48f601e67a0ec865",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/muon_fsdp_v2.py",
+      "archive_entry": "rain/utils/optim/muon_fsdp_v2.py",
+      "bytes": 11923,
+      "sha256": "3ff61a506c9aaeab178aea4bc57553a156302f6ed410e23ee4f86d9c3287914f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/muon_ball_fused.py",
+      "archive_entry": "rain/utils/optim/muon_ball_fused.py",
+      "bytes": 11613,
+      "sha256": "1a14913343a04a75baa9b43682af3e072af4ff5b6cf27cf1e740b2e1eec18eb6",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/kron.py",
+      "archive_entry": "rain/utils/optim/kron.py",
+      "bytes": 18596,
+      "sha256": "427ae0cc21ad9d942fd0fe0beced82faaec060eefc6b1f1cb6ea5cd0789ee3f6",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/muon_fsdp.py",
+      "archive_entry": "rain/utils/optim/muon_fsdp.py",
+      "bytes": 7796,
+      "sha256": "68c03f75800196e0b8cd13353c76aa1208306d7a88a3e0e67a81a290fc38f849",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/utils.py",
+      "archive_entry": "rain/utils/optim/utils.py",
+      "bytes": 1324,
+      "sha256": "15125b57e9697a7c74ed02775d13a216e37a98197d8ed77e27423cedd206d586",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/splus.py",
+      "archive_entry": "rain/utils/optim/splus.py",
+      "bytes": 6358,
+      "sha256": "ea3257b601e1c8b2cf55508bde58d9e6ad932afccee69620b1c99944cf746422",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/muon.py",
+      "archive_entry": "rain/utils/optim/muon.py",
+      "bytes": 27491,
+      "sha256": "c7fa997778878e29ad5bc4cc8a5a12cddb0da394664fc98c8d1a9d0dd58df778",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/magma_skipupdate_wrapper.py",
+      "archive_entry": "rain/utils/optim/magma_skipupdate_wrapper.py",
+      "bytes": 13609,
+      "sha256": "871cfa79ae5e8ee2af9bc737fb1a500bd900cdea5bd61ca2270bb5dd48d644cd",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/muon_quantized_fused.py",
+      "archive_entry": "rain/utils/optim/muon_quantized_fused.py",
+      "bytes": 20815,
+      "sha256": "7e22fe0d45596ee07508fdc597f005b35324d66fa813dd24809d3429a4c1a7bd",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/normuon_fused.py",
+      "archive_entry": "rain/utils/optim/normuon_fused.py",
+      "bytes": 6535,
+      "sha256": "179a09965d2848e9473fee10b871f41a10546dc989202aa62e990734101db51e",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/train_utils/lr_scheduler.py",
+      "archive_entry": "rain/utils/train_utils/lr_scheduler.py",
+      "bytes": 5216,
+      "sha256": "4b91bc431614e3570aeaf94718b075314a61d00725f9212bc3db852bf894c4dd",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/train_utils/time.py",
+      "archive_entry": "rain/utils/train_utils/time.py",
+      "bytes": 6058,
+      "sha256": "2a540ba78a6f924e16ddf4c9eee980c7583c4792ae2f264f7f1aa624547d2000",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/train_utils/__init__.py",
+      "archive_entry": "rain/utils/train_utils/__init__.py",
+      "bytes": 1284,
+      "sha256": "234074cf1c93be09e8e878a59d4c48e83d5727700f4d137bc42ff1287d777fa1",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/train_utils/visualization.py",
+      "archive_entry": "rain/utils/train_utils/visualization.py",
+      "bytes": 36732,
+      "sha256": "25ea84580fa53a5fb24a4c543bd2ebe1123b7eb9c3f60125ecd049d217a5647d",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/train_utils/cli.py",
+      "archive_entry": "rain/utils/train_utils/cli.py",
+      "bytes": 6282,
+      "sha256": "c80ee041cbe1e960f3bc794bef8850542910489ec19144e13180da2b4c1d5a94",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/train_utils/optim.py",
+      "archive_entry": "rain/utils/train_utils/optim.py",
+      "bytes": 2648,
+      "sha256": "8058cbc31d2429b4c1670d017dac070a4334c6d7b75329d1aefa8be36b36b20f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/train_utils/state.py",
+      "archive_entry": "rain/utils/train_utils/state.py",
+      "bytes": 27768,
+      "sha256": "3cbae1df169df9797b9f3977f29e59ec6539ec1c72e4e785e40edb877283aa6a",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/saver/zarr_saver.py",
+      "archive_entry": "rain/utils/saver/zarr_saver.py",
+      "bytes": 1160,
+      "sha256": "9d9365092802641e741cd0d9ff9f08c46acd955f79338d13d6e2d22b3797e26d",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/saver/__init__.py",
+      "archive_entry": "rain/utils/saver/__init__.py",
+      "bytes": 84,
+      "sha256": "3e8ae4d79c439b524e9c693e3f7698bd2eadcb51f1f267c59f036e281a26be8d",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/saver/safetensors_large_file_saver.py",
+      "archive_entry": "rain/utils/saver/safetensors_large_file_saver.py",
+      "bytes": 19601,
+      "sha256": "d8562f1a4a05e9bcb333775b66e1a2186e1cf18be3a9585325dad8ef5eebc1bd",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/logging/functions.py",
+      "archive_entry": "rain/utils/logging/functions.py",
+      "bytes": 7146,
+      "sha256": "e4f7c52041e34b228cb689edab461dbd1dc91e7231cb23438ab3de9b6821b65b",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/logging/__init__.py",
+      "archive_entry": "rain/utils/logging/__init__.py",
+      "bytes": 293,
+      "sha256": "34cf5398a2c623a6bbe9fc86b814f5d63c6a0dd27eb30385619c2669629b3037",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/logging/print.py",
+      "archive_entry": "rain/utils/logging/print.py",
+      "bytes": 25427,
+      "sha256": "2b0d87b70b1edb3a3338c5d2010701bbdd41d47710537f631f99168fc1374889",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/func/dict_utils.py",
+      "archive_entry": "rain/utils/func/dict_utils.py",
+      "bytes": 2365,
+      "sha256": "8c3dfecd3ca81f56b684c5f04189bd474c581a1277a1cb97d668dbb8e52ab09e",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/func/dataclass.py",
+      "archive_entry": "rain/utils/func/dataclass.py",
+      "bytes": 609,
+      "sha256": "4cd683d0f83b7eb2131c230f77754a174d4b8925148fa4361a3a260e235781b1",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/func/redirect_stderr.py",
+      "archive_entry": "rain/utils/func/redirect_stderr.py",
+      "bytes": 6811,
+      "sha256": "f5a2af0913d0cbddd1ecdcbb7512a4e6770a3a386512f5446c4ab3c8691e1a85",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/func/__init__.py",
+      "archive_entry": "rain/utils/func/__init__.py",
+      "bytes": 347,
+      "sha256": "5fb42892385c754db6a8bfa6b37b57a8e5acd8d05fedbbe7064ae4df8eb4daf9",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/func/named_tuple.py",
+      "archive_entry": "rain/utils/func/named_tuple.py",
+      "bytes": 1176,
+      "sha256": "8abfcfe9e1aac4ccc97cbc1451b43338f4770fc72cd1ce6808b0bfb8af4e17e9",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/func/attrs.py",
+      "archive_entry": "rain/utils/func/attrs.py",
+      "bytes": 225,
+      "sha256": "6c15d5e1fec77e1a704e5ba32d58f83002fa95b89bbbfdcdb1c55010226dfb9b",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/func/call.py",
+      "archive_entry": "rain/utils/func/call.py",
+      "bytes": 8199,
+      "sha256": "f3c2de0b1f5c2f1f2d73fc4777737ef587242d4f9c7ff9a8477d7abadd033b97",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/GAN/patchgan3d.py",
+      "archive_entry": "rain/networks/GAN/patchgan3d.py",
+      "bytes": 5938,
+      "sha256": "458e1279866b28206872fa0fb1f11e0efef71c94656e208cb08c7192ae77eb51",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/losses/gan.py",
+      "archive_entry": "rain/networks/losses/gan.py",
+      "bytes": 5685,
+      "sha256": "d016b8119c6396c53ac4c674ebf9da63ebc78eed522927e5bff550564b45d281",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/losses/physical.py",
+      "archive_entry": "rain/networks/losses/physical.py",
+      "bytes": 9995,
+      "sha256": "1dc7e8dc866b5e750ad1f7f3fa94a8c972ba92c376df8f56ab18b8c316bf8279",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/time_series/causal_patch_transformer_diffusion.py",
+      "archive_entry": "rain/networks/time_series/causal_patch_transformer_diffusion.py",
+      "bytes": 55026,
+      "sha256": "8495027879938068e92d29083a94bb313f7a032414f671b9e70a12075bd7e7bc",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/time_series/causal_patch_transformer_next_frame.py",
+      "archive_entry": "rain/networks/time_series/causal_patch_transformer_next_frame.py",
+      "bytes": 44496,
+      "sha256": "2b3ba71be728731f2e94074b7fbf6870766e9f989aef2d720014338663895ef0",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/time_series/fm_rollout.py",
+      "archive_entry": "rain/networks/time_series/fm_rollout.py",
+      "bytes": 9244,
+      "sha256": "bf03fa99120a9841223255040dd7e4d27e0d32af59f3ed2a45d0af1b8184a3da",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/time_series/causal_patch_transformer_next_frame_tempo_v4.py",
+      "archive_entry": "rain/networks/time_series/causal_patch_transformer_next_frame_tempo_v4.py",
+      "bytes": 55684,
+      "sha256": "b12e80b45d76f8ab48be143ab5103d5b9ebb6de1a1cb644f29eeb9dad7775350",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/spatial_rain_upsample/upsampler.py",
+      "archive_entry": "rain/networks/spatial_rain_upsample/upsampler.py",
+      "bytes": 22744,
+      "sha256": "10d84c1cf37429ab39cf81bf4d49c1a69043bb83fc906e43194a19c5e4ddfee3",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/Attention.py",
+      "archive_entry": "rain/networks/modules/Attention.py",
+      "bytes": 7984,
+      "sha256": "e0821ccd98877f35fb301cec3e925aefe97d21721101c86d73a4b4c178adeae2",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/unet_nn.py",
+      "archive_entry": "rain/networks/modules/unet_nn.py",
+      "bytes": 5034,
+      "sha256": "5121f3749bd54246084d7ab28dd63be3a90bd37f0daf0b76e8831a4ac7ad76aa",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/reconstruction.py",
+      "archive_entry": "rain/networks/modules/reconstruction.py",
+      "bytes": 26231,
+      "sha256": "bc7c07efaf5d9b9013642ee50defacbc9b21954562df87f5342691eb3a2bfeb9",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/resblock.py",
+      "archive_entry": "rain/networks/modules/resblock.py",
+      "bytes": 2744,
+      "sha256": "afda532667e255fdc10ae556c131e63a4d3f0136a6e59a52e0428120f6d73917",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/sana_blocks.py",
+      "archive_entry": "rain/networks/modules/sana_blocks.py",
+      "bytes": 42571,
+      "sha256": "a660fb95c03cc3f06763cf59456c4e6934e88e70afdbaa754bae34f136300eaa",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/wan21_blocks.py",
+      "archive_entry": "rain/networks/modules/wan21_blocks.py",
+      "bytes": 24356,
+      "sha256": "1b31ca3ac21c4607f6bc0455d6515f238874e295fc73d83ea09391ed92549cd5",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/resnext.py",
+      "archive_entry": "rain/networks/modules/resnext.py",
+      "bytes": 2073,
+      "sha256": "5272929a02b1a80ed92d85cd772aeee56e3eb5f33f8c618417682333830bc9cd",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/SwinTransformer.py",
+      "archive_entry": "rain/networks/modules/SwinTransformer.py",
+      "bytes": 21166,
+      "sha256": "698ecaec9d4d05928bb0b4dd87e05af1f1e5db7f9e66f6b7528e153466357fe0",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/wan22_blocks.py",
+      "archive_entry": "rain/networks/modules/wan22_blocks.py",
+      "bytes": 33743,
+      "sha256": "7aeec0a18f02cdc0c583e32669779a009c148c0f10f24beb9adb2446d1ab2fd8",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/basic.py",
+      "archive_entry": "rain/networks/modules/basic.py",
+      "bytes": 10173,
+      "sha256": "1ddcee9de5fe82c6643f19eb4b384564a5cc604e6d70ccf98f0d4beeae226ae3",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/utils.py",
+      "archive_entry": "rain/networks/modules/utils.py",
+      "bytes": 21817,
+      "sha256": "be658f47502b9e28cfc122dc4084e83585a6e7017981f018521df3b74fa281bf",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/rope.py",
+      "archive_entry": "rain/networks/modules/rope.py",
+      "bytes": 28020,
+      "sha256": "bd3a59e83d2f00d544bf831bfbbbe0062595dbb17a69081b32650f8a922f78f8",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/ttt_memory.py",
+      "archive_entry": "rain/networks/modules/ttt_memory.py",
+      "bytes": 4938,
+      "sha256": "a7b1ec5908bcfc14d901147721f0663523ef5eb4984b183403548a6cbd33e006",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/resamples.py",
+      "archive_entry": "rain/networks/modules/resamples.py",
+      "bytes": 15877,
+      "sha256": "730e7583678b6ec2ac37cc8f5af21c0dffb06343d24792741d5c8bacada8f778",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/norms.py",
+      "archive_entry": "rain/networks/modules/norms.py",
+      "bytes": 5545,
+      "sha256": "1411fa1192a86962c7ab914781190d92ed9f04afd81d31d59bdf257214215371",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/ts_rain_test/rain_prediction_model/swinnet.yaml",
+      "archive_entry": "rain/config/ts_rain_test/rain_prediction_model/swinnet.yaml",
+      "bytes": 251,
+      "sha256": "ac8645180c7a4bba1bf5785b80424477c60dd662f0b4fd0362a558856efdbf1f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/ts_rain_test/rain_prediction_model/causal_patch_transformer_next_frame.yaml",
+      "archive_entry": "rain/config/ts_rain_test/rain_prediction_model/causal_patch_transformer_next_frame.yaml",
+      "bytes": 994,
+      "sha256": "a2186f9135e5556402a760f64f01ca3cc4c637f922bf3113466d42cb03ad2949",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/ts_rain_test/rain_prediction_model/causal_patch_transformer_diffusion.yaml",
+      "archive_entry": "rain/config/ts_rain_test/rain_prediction_model/causal_patch_transformer_diffusion.yaml",
+      "bytes": 635,
+      "sha256": "56213332854f6d7e99586260e2ff8266263332c1174be6fd1ceb29d0f4cf81d7",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/ts_rain_test/rain_prediction_model/time_conditioned_advection.yaml",
+      "archive_entry": "rain/config/ts_rain_test/rain_prediction_model/time_conditioned_advection.yaml",
+      "bytes": 174,
+      "sha256": "a009e2670a42a55ca91bc34947df400b3ab81c63557aaa8c9fabc8e5077c2ce8",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/ts_rain_test/rain_prediction_model/causal_time_unet.yaml",
+      "archive_entry": "rain/config/ts_rain_test/rain_prediction_model/causal_time_unet.yaml",
+      "bytes": 179,
+      "sha256": "47d25e3de1fb475091b4499c9002b30e12a06e4578507a2bd531d28c74679707",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/non_ts_rain_train/rain_prediction_model/plain_transformer.yaml",
+      "archive_entry": "rain/config/non_ts_rain_train/rain_prediction_model/plain_transformer.yaml",
+      "bytes": 190,
+      "sha256": "7d8c898697037d0fdbc406a11ca6313f76cb53c66e8c836125a98f790bf4c9f8",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/non_ts_rain_train/rain_prediction_model/unet.yaml",
+      "archive_entry": "rain/config/non_ts_rain_train/rain_prediction_model/unet.yaml",
+      "bytes": 211,
+      "sha256": "0cba6b99d5e1f24510f41aeb556b1ea45880ac07adc6c2039eb6d03285d0e001",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/non_ts_rain_train/rain_prediction_model/dpt_vitb_rn50_384.yaml",
+      "archive_entry": "rain/config/non_ts_rain_train/rain_prediction_model/dpt_vitb_rn50_384.yaml",
+      "bytes": 97,
+      "sha256": "e89bab59a74604c4a0eb174e5fcd2383242debe769bb1b37495fe2ab87618b3f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/ts_rain_train/rain_prediction_model/causal_patch_transformer_next_frame_cross_local.yaml",
+      "archive_entry": "rain/config/ts_rain_train/rain_prediction_model/causal_patch_transformer_next_frame_cross_local.yaml",
+      "bytes": 1228,
+      "sha256": "4ac1810b764399d967e92b92395e5999364fd507a416888ed02fecaf6d385129",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/ts_rain_train/rain_prediction_model/swinnet.yaml",
+      "archive_entry": "rain/config/ts_rain_train/rain_prediction_model/swinnet.yaml",
+      "bytes": 251,
+      "sha256": "ac8645180c7a4bba1bf5785b80424477c60dd662f0b4fd0362a558856efdbf1f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/ts_rain_train/rain_prediction_model/causal_patch_transformer_next_frame.yaml",
+      "archive_entry": "rain/config/ts_rain_train/rain_prediction_model/causal_patch_transformer_next_frame.yaml",
+      "bytes": 993,
+      "sha256": "7a044dbcda950a4fc1e2a148564eab4f60aaa35f43051dee58dc36d0155b3289",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/ts_rain_train/rain_prediction_model/causal_patch_transformer_diffusion.yaml",
+      "archive_entry": "rain/config/ts_rain_train/rain_prediction_model/causal_patch_transformer_diffusion.yaml",
+      "bytes": 635,
+      "sha256": "56213332854f6d7e99586260e2ff8266263332c1174be6fd1ceb29d0f4cf81d7",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/config/ts_rain_train/rain_prediction_model/causal_time_unet.yaml",
+      "archive_entry": "rain/config/ts_rain_train/rain_prediction_model/causal_time_unet.yaml",
+      "bytes": 179,
+      "sha256": "47d25e3de1fb475091b4499c9002b30e12a06e4578507a2bd531d28c74679707",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/transition_matching/__init__.py",
+      "archive_entry": "rain/utils/transport/transition_matching/__init__.py",
+      "bytes": 59,
+      "sha256": "cce1ab0ff63c3db416937121d0b6938fd1c6199d1f2227a56fe151e30dc1828a",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/fmheads/sampling_x.py",
+      "archive_entry": "rain/utils/transport/fmheads/sampling_x.py",
+      "bytes": 3855,
+      "sha256": "5903523b81725ed1e509abeaca794711e1a17fb793c0b4258d10cc4cfced8f09",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/fmheads/flow_head_parallel_x.py",
+      "archive_entry": "rain/utils/transport/fmheads/flow_head_parallel_x.py",
+      "bytes": 11417,
+      "sha256": "e4ffec22b8cd232945f237c89e015dd8b92c1ffbab69ca3fbef753effa643b06",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/diffusion/respace.py",
+      "archive_entry": "rain/utils/transport/diffusion/respace.py",
+      "bytes": 5375,
+      "sha256": "cbf2e170918e02606b6bbc3edfd4d20ef62551f7d14809adb0e58216d3c76a9e",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/diffusion/timestep_sampler.py",
+      "archive_entry": "rain/utils/transport/diffusion/timestep_sampler.py",
+      "bytes": 5933,
+      "sha256": "147beb460d77d5c0c926b080ef68251567ce4d1185c57d92f47701ff7dc37b46",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/diffusion/diffusion_utils.py",
+      "archive_entry": "rain/utils/transport/diffusion/diffusion_utils.py",
+      "bytes": 3121,
+      "sha256": "f845cafa6ba8161caf8555bcd770a05fe05023cb5a7625494bbdc6a194056b5b",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/diffusion/__init__.py",
+      "archive_entry": "rain/utils/transport/diffusion/__init__.py",
+      "bytes": 1539,
+      "sha256": "c2a608e8fb05fac45c3e887f7fb35e05e4b70df2fece1ad71afda15a46bda96d",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/diffusion/gaussian_diffusion.py",
+      "archive_entry": "rain/utils/transport/diffusion/gaussian_diffusion.py",
+      "bytes": 35413,
+      "sha256": "8a9ab2d3a995b0c9d3f3b28b64a7c7ae12b2d7145d6d2f5489d29b59bf8a4f7e",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/tim/transition.py",
+      "archive_entry": "rain/utils/transport/tim/transition.py",
+      "bytes": 15610,
+      "sha256": "e460c60c994412bc0241ff820f92eaf0b2ec5a5eaae5ee0aab6994554b8fa224",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/tim/__init__.py",
+      "archive_entry": "rain/utils/transport/tim/__init__.py",
+      "bytes": 105,
+      "sha256": "161ae0a7fa633955db0cb928be27be6a5144fb0e0d932984b5651d3dec84e0d1",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/tim/transports.py",
+      "archive_entry": "rain/utils/transport/tim/transports.py",
+      "bytes": 14831,
+      "sha256": "9b18db961d4d5e3630eb23b025cd9e6f45b0575d79d67f8c219f73c928cced79",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/flow_matching/meanflow.py",
+      "archive_entry": "rain/utils/transport/flow_matching/meanflow.py",
+      "bytes": 10867,
+      "sha256": "4715c6bdfcd4f9febd608eb4876b8f201f450d4afe8276249d8853026ef32dc7",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/flow_matching/integrators.py",
+      "archive_entry": "rain/utils/transport/flow_matching/integrators.py",
+      "bytes": 7770,
+      "sha256": "c0fb556228d9ef431fdc710f496d706491a2f1d4a7a684c7647c3733dbbc0eff",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/flow_matching/transport.py",
+      "archive_entry": "rain/utils/transport/flow_matching/transport.py",
+      "bytes": 22804,
+      "sha256": "97fcc8a416112ac705c242d48a9c932e94053aa63237d8c3977765aed64e3a31",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/flow_matching/__init__.py",
+      "archive_entry": "rain/utils/transport/flow_matching/__init__.py",
+      "bytes": 2160,
+      "sha256": "fd4dcb9ba3a1220abc68331d3a83cde350056d0e5990aa64ccc02a806c1e1d52",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/flow_matching/alpha_flow_self_contained.py",
+      "archive_entry": "rain/utils/transport/flow_matching/alpha_flow_self_contained.py",
+      "bytes": 20831,
+      "sha256": "8961d73037c14d5199de75409ad05ab85af4b036f05020a6e78c87bbf5c87998",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/flow_matching/utils.py",
+      "archive_entry": "rain/utils/transport/flow_matching/utils.py",
+      "bytes": 757,
+      "sha256": "6d4e8ee65911580b0682eeec3bb49b8995252b74094628f4c771a5b1439553b3",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/flow_matching/path.py",
+      "archive_entry": "rain/utils/transport/flow_matching/path.py",
+      "bytes": 7363,
+      "sha256": "8e6b6f4fac5e6620df808871e5f187fc8fb4778265d94d2ae9257158f6b5a55c",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/SDB/plan.py",
+      "archive_entry": "rain/utils/transport/SDB/plan.py",
+      "bytes": 46389,
+      "sha256": "5a714e018feb412b3b3666789b5ee806722f4ee3d521a64cbacd47ea62e8c47d",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/SDB/precond.py",
+      "archive_entry": "rain/utils/transport/SDB/precond.py",
+      "bytes": 3075,
+      "sha256": "77a03d75d206dd1b5b294058642dd065e27c3c44d66c6e8a19df13ec9c02e995",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/SDB/plan_relaxed.py",
+      "archive_entry": "rain/utils/transport/SDB/plan_relaxed.py",
+      "bytes": 13500,
+      "sha256": "9c3bd404c6cca445bc2c3800039cf5094dd153a548975af5be6f67cb9980c411",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/SDB/demo_cifar.py",
+      "archive_entry": "rain/utils/transport/SDB/demo_cifar.py",
+      "bytes": 14382,
+      "sha256": "b197a93f10916e808d65fea98bd6c4540ba1330d9a4fe7177da1bd23417e0197",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/SDB/demo.py",
+      "archive_entry": "rain/utils/transport/SDB/demo.py",
+      "bytes": 11998,
+      "sha256": "b96af1fcb4ab070f08540572efd2ffb4f090d400374464f9161f542554e4bcd7",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/twinflow/losses.py",
+      "archive_entry": "rain/utils/transport/twinflow/losses.py",
+      "bytes": 15341,
+      "sha256": "44757dd85d1f66b37cca0f58787f5d27c807eab6210beaa2293a22749ffa07aa",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/twinflow/demo.py",
+      "archive_entry": "rain/utils/transport/twinflow/demo.py",
+      "bytes": 12881,
+      "sha256": "fe8d10e63f630629b2052973c4bbcf18c6fbe3fdf130ea878404f5480640eeb8",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/UniDB/compare_unidb.py",
+      "archive_entry": "rain/utils/transport/UniDB/compare_unidb.py",
+      "bytes": 5343,
+      "sha256": "3870f6e8a47381bb510783f0be7b93d5bed923716779c20ba6aaa8db526ccfe9",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/UniDB/plan_continuous.py",
+      "archive_entry": "rain/utils/transport/UniDB/plan_continuous.py",
+      "bytes": 35876,
+      "sha256": "a8a57986f292d8662d478952396b80f6a909be9085cde78430a3397bd9ae984b",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/UniDB/plan_disc.py",
+      "archive_entry": "rain/utils/transport/UniDB/plan_disc.py",
+      "bytes": 14730,
+      "sha256": "18adbbb17ec95344f24da703ef5969c0a7c4047607b20c80f8f4c428b3900015",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/UniDB/demo_cifar.py",
+      "archive_entry": "rain/utils/transport/UniDB/demo_cifar.py",
+      "bytes": 12024,
+      "sha256": "ae7efe9af7def7d1bde4a993404cb7b2873d4852b235809315300eb5732963ce",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/UniDB/demo_train.py",
+      "archive_entry": "rain/utils/transport/UniDB/demo_train.py",
+      "bytes": 11000,
+      "sha256": "eebfec1b53e0555f33542ea6464b00250c003111e693b756f439b6afa374ee6f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/I2SB/diffusion.py",
+      "archive_entry": "rain/utils/transport/I2SB/diffusion.py",
+      "bytes": 7857,
+      "sha256": "afd1d1f055417030888ff5823df25e32aa5d093d5254374abccd6cedadd33cdc",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/I2SB/self_flow_mean_i2sb.py",
+      "archive_entry": "rain/utils/transport/I2SB/self_flow_mean_i2sb.py",
+      "bytes": 19648,
+      "sha256": "559876ca114aa11b30329d5875fb55145bcaf65a6e7a63826f0c6af3bbc8e642",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/I2SB/mean_i2sb.py",
+      "archive_entry": "rain/utils/transport/I2SB/mean_i2sb.py",
+      "bytes": 12028,
+      "sha256": "c2450d83d2543714e49e9f562b10cc6b5e89dc2cfd23f0d4d5b66f3a72ddbbba",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/requirements_dion.txt",
+      "archive_entry": "rain/utils/optim/dion/requirements_dion.txt",
+      "bytes": 25,
+      "sha256": "bc5c14c0933ab6fb09a1d4c665f0d0ecd7dcca2c0ee491235cdebfb9d3428985",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/LICENSE",
+      "archive_entry": "rain/utils/optim/dion/LICENSE",
+      "bytes": 1073,
+      "sha256": "646f8936b8ddcd14e13e578ff6857e368780b0d1a4f6066bee89211923a373e2",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/README.md",
+      "archive_entry": "rain/utils/optim/dion/README.md",
+      "bytes": 28445,
+      "sha256": "9a48ec43a43b85ddb6ba3862355761ff829b1832a586e79a0f6a4f42717fe9af",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/setup.py",
+      "archive_entry": "rain/utils/optim/dion/setup.py",
+      "bytes": 2805,
+      "sha256": "38c7e42a09657ceb7d7b4892c377796eb67aa7b9c89617bd763020091bd36152",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/requirements_train.txt",
+      "archive_entry": "rain/utils/optim/dion/requirements_train.txt",
+      "bytes": 49,
+      "sha256": "7b37d5b0f1df14ee31b9669233bd2949ba0b002410243506d47ed2262054fcb0",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/.gitignore",
+      "archive_entry": "rain/utils/optim/dion/.gitignore",
+      "bytes": 101,
+      "sha256": "2cbc2454efefcbde72e8b1896c2002b4899cf2bb7dcbeea7dabb0ed0dea3e8d2",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/train.py",
+      "archive_entry": "rain/utils/optim/dion/train.py",
+      "bytes": 37443,
+      "sha256": "51865380d45dd49a2f10a4fda93e87ea041ec5ed2f148380276db004806aa801",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/NOTICE.md",
+      "archive_entry": "rain/utils/optim/dion/NOTICE.md",
+      "bytes": 2367,
+      "sha256": "116fb0cdec54891464182b25b0d0bb6936c580b7d7cbfb688e63dfa6c167c854",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/SECURITY.md",
+      "archive_entry": "rain/utils/optim/dion/SECURITY.md",
+      "bytes": 2656,
+      "sha256": "7b6976eec43edfa68b79a459dd089c56b7a395916dbf1a01bd11e6d86e12128f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/requirements_dev.txt",
+      "archive_entry": "rain/utils/optim/dion/requirements_dev.txt",
+      "bytes": 41,
+      "sha256": "80c98abf84d300040e963c15ef8b8bb264ec22f594e9747411779fa57fbc2f57",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/package_info.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/package_info.py",
+      "bytes": 1373,
+      "sha256": "d1f7a90b42fec2b53883648e826e5ae6755bb977be76b8fed03faf2cfbe211ec",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/mixin.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/mixin.py",
+      "bytes": 1877,
+      "sha256": "6b5508fe3a920125efb4e95d09ad501c9da758969801807bdb1890cc64b5360f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/__init__.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/__init__.py",
+      "bytes": 903,
+      "sha256": "30e45a21058a635ae109acb4e8a44eb68f101989b98b6dbc075693068a701978",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/time_series/diffusion/fm_solvers.py",
+      "archive_entry": "rain/networks/time_series/diffusion/fm_solvers.py",
+      "bytes": 40232,
+      "sha256": "f7254e3ac5c6c6715317cdf991d927cde61c1400ad73851be41fc51ce5ecba5d",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/time_series/diffusion/gaussian_scheduler.py",
+      "archive_entry": "rain/networks/time_series/diffusion/gaussian_scheduler.py",
+      "bytes": 11564,
+      "sha256": "1c4cd741cbda137813227848cc58ba7feace1593148c71d9c6e8d62be0a5c862",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/time_series/diffusion/fm_scheduler.py",
+      "archive_entry": "rain/networks/time_series/diffusion/fm_scheduler.py",
+      "bytes": 4610,
+      "sha256": "4bb0fd7dddf79d6b04dc5a441130303363e0d13169265b1858d8971e2ca26068",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/time_series/diffusion/fm_solvers_unipc.py",
+      "archive_entry": "rain/networks/time_series/diffusion/fm_solvers_unipc.py",
+      "bytes": 32646,
+      "sha256": "de622aced9aa5022622509295e5a0e40589b53f59ce13cf64061af9e99af5f66",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/time_series/causal_forcing/gan.py",
+      "archive_entry": "rain/networks/time_series/causal_forcing/gan.py",
+      "bytes": 1307,
+      "sha256": "8a01ca95aac4d88fbcbd7740797d992bd0bd1d9ebcd68834d1845af18d019d7a",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/time_series/causal_forcing/diffusion.py",
+      "archive_entry": "rain/networks/time_series/causal_forcing/diffusion.py",
+      "bytes": 15685,
+      "sha256": "4323166b6462f6a6ee45a2d6431cdc758368ec6f3a7d4ac2b59befb32a8b97f8",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/time_series/causal_forcing/dmd.py",
+      "archive_entry": "rain/networks/time_series/causal_forcing/dmd.py",
+      "bytes": 2077,
+      "sha256": "d7cad6ca4a242f5dc4e095909fcda0863ac0c95f75923629e271d03cdd46c61b",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/time_series/causal_forcing/__init__.py",
+      "archive_entry": "rain/networks/time_series/causal_forcing/__init__.py",
+      "bytes": 372,
+      "sha256": "986d58c55e9f65a3b8f44ecb4c7ec2097e8000b04e0ba81990536d79b01639d3",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/time_series/causal_forcing/scheduler.py",
+      "archive_entry": "rain/networks/time_series/causal_forcing/scheduler.py",
+      "bytes": 12511,
+      "sha256": "9f8d519d8e712bf9a0ae329d25b6a7d2b306d83195d89870ff62ee7acd461a37",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/time_series/causal_forcing/base.py",
+      "archive_entry": "rain/networks/time_series/causal_forcing/base.py",
+      "bytes": 2817,
+      "sha256": "eb3a37dab11d9463cc0378b48d3f9fa29d4d139fdf77faf38a9ab7d39d88afec",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/dpt/transforms.py",
+      "archive_entry": "rain/networks/modules/dpt/transforms.py",
+      "bytes": 7854,
+      "sha256": "a84532eec3ee64d073c4e32ff175201362d99974e1ef075200001023620e21ed",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/dpt/models.py",
+      "archive_entry": "rain/networks/modules/dpt/models.py",
+      "bytes": 9022,
+      "sha256": "461cd9b8872fe8ee9fff0008a9a9b92fbe2657244ec113616f74d86cd540b65c",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/dpt/midas_net.py",
+      "archive_entry": "rain/networks/modules/dpt/midas_net.py",
+      "bytes": 2738,
+      "sha256": "dd31aad725ba940ddb60cc11619512be037c82b80a7f5b5d72b80fbe18877752",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/dpt/__init__.py",
+      "archive_entry": "rain/networks/modules/dpt/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/dpt/base_model.py",
+      "archive_entry": "rain/networks/modules/dpt/base_model.py",
+      "bytes": 367,
+      "sha256": "21e8d5b256b8ea6cd539e23b101c1a7a96efc9ced6b94ec95778675e88535d27",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/dpt/vit.py",
+      "archive_entry": "rain/networks/modules/dpt/vit.py",
+      "bytes": 17200,
+      "sha256": "e859f427da3ab66d34aff77eebdc87ec2e678871122db06a741377c3719723af",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/dpt/blocks.py",
+      "archive_entry": "rain/networks/modules/dpt/blocks.py",
+      "bytes": 9144,
+      "sha256": "a40d2979d980a4a1eece43e99c48282f7b284a99a930280b696d7e962c9178f8",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/networks/modules/spatial_rain_upsample/upsampler.py",
+      "archive_entry": "rain/networks/modules/spatial_rain_upsample/upsampler.py",
+      "bytes": 14748,
+      "sha256": "60a8c39069d3b5566ce4187402871376dc55ffdf594d55520f2015d2b0689c25",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/transition_matching/DTM/run_dtm.txt",
+      "archive_entry": "rain/utils/transport/transition_matching/DTM/run_dtm.txt",
+      "bytes": 374,
+      "sha256": "2ca8d90372f159e1f24afdea767c14bec02def31abcb176ad5ecdf4e5c53f33e",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/transition_matching/DTM/train_dtm.py",
+      "archive_entry": "rain/utils/transport/transition_matching/DTM/train_dtm.py",
+      "bytes": 15616,
+      "sha256": "21a018f82ca380d25d07cc2abebca9a3d43e7770793c216f0101a37f40544f88",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/benchmark/benchmark_newton_shultz.py",
+      "archive_entry": "rain/utils/optim/dion/benchmark/benchmark_newton_shultz.py",
+      "bytes": 5907,
+      "sha256": "6505084f203865e702ec536c5636f7ec6c501c7986e085297a38b009e2d64a6a",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/tests/test_newton_shultz.py",
+      "archive_entry": "rain/utils/optim/dion/tests/test_newton_shultz.py",
+      "bytes": 3281,
+      "sha256": "896b7b0545ba9c849bee4ca45752cfe03b9bcc99c37fb435e52a14e737647f77",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/dion/dion_reference.py",
+      "archive_entry": "rain/utils/optim/dion/dion/dion_reference.py",
+      "bytes": 39232,
+      "sha256": "596632834a909bb369286227accbe820d6490040400199b15a8c0f9bb9cb156c",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/dion/scalar_opts.py",
+      "archive_entry": "rain/utils/optim/dion/dion/scalar_opts.py",
+      "bytes": 8461,
+      "sha256": "f79748b4a70183d1516c880ee3062d87346ce13e7e62911ec1f6ae4902d859f8",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/dion/dion_simple.py",
+      "archive_entry": "rain/utils/optim/dion/dion/dion_simple.py",
+      "bytes": 7450,
+      "sha256": "22f357516e3b63e460bd8c5fcae70b43b3b05197433abd0bf623df12e5b829af",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/dion/dion2.py",
+      "archive_entry": "rain/utils/optim/dion/dion/dion2.py",
+      "bytes": 28209,
+      "sha256": "3b96e86eaf4a256c27f4376385ace1d5c9bd4ca993aa37daefc5f6fd7a844ea2",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/dion/__init__.py",
+      "archive_entry": "rain/utils/optim/dion/dion/__init__.py",
+      "bytes": 287,
+      "sha256": "58eabe974cd4aefdd9b568522f71078902e8955df39af8c9b5b22f8edb47a71b",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/dion/newton_schulz_triton.py",
+      "archive_entry": "rain/utils/optim/dion/dion/newton_schulz_triton.py",
+      "bytes": 11560,
+      "sha256": "00a8ae29aba92bbc1dd51964b857598d5f667f1e7e7fc06daa3417d58279f68b",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/dion/opt_utils.py",
+      "archive_entry": "rain/utils/optim/dion/dion/opt_utils.py",
+      "bytes": 4822,
+      "sha256": "edaf223bc1b037eb89daeb5e21b1ed7cfa8bb216f80ff42f45ec38371f505279",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/dion/muon_reference.py",
+      "archive_entry": "rain/utils/optim/dion/dion/muon_reference.py",
+      "bytes": 12392,
+      "sha256": "cb6f4dde379c2e14adef894487ba3fbdabaa7930920aa18ce893723ce1a00719",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/dion/muon.py",
+      "archive_entry": "rain/utils/optim/dion/dion/muon.py",
+      "bytes": 26340,
+      "sha256": "c75110c2f267e8b3a2dca0941b930cbbf2f61d59a7fda350b08e4cb728d0ddc4",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/dion/normuon.py",
+      "archive_entry": "rain/utils/optim/dion/dion/normuon.py",
+      "bytes": 25807,
+      "sha256": "c9ac981677b8f303c49bbbbeae60026254f82f2fba8842f72ecf6a4233e943e4",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/dion/dion.py",
+      "archive_entry": "rain/utils/optim/dion/dion/dion.py",
+      "bytes": 61452,
+      "sha256": "96e3a5bdec2a4928df575f5722a822d0475b1fa780c46e7b5acb455a655969b3",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/models/gpt_model.py",
+      "archive_entry": "rain/utils/optim/dion/models/gpt_model.py",
+      "bytes": 14014,
+      "sha256": "f9595cef6894190e34f9375366689f18e80a975a0d5b97aae384e1a00c35ee9a",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/models/gpt_utils.py",
+      "archive_entry": "rain/utils/optim/dion/models/gpt_utils.py",
+      "bytes": 6789,
+      "sha256": "9c6c3734bd4821f455b7d62b6b1e7e16fca0ca3807e9cf61bd361299cc2bb2c4",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/configs/dion2_160m.yaml",
+      "archive_entry": "rain/utils/optim/dion/configs/dion2_160m.yaml",
+      "bytes": 764,
+      "sha256": "2267a9c1cc56fdc4d52abe57429b1df899471fdd5241c3460a3fcebde8971ca2",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/configs/dion_160m.yaml",
+      "archive_entry": "rain/utils/optim/dion/configs/dion_160m.yaml",
+      "bytes": 817,
+      "sha256": "b30e5fd7b30a1e9ec562756979aabe3db23661f6d6d05f0bd8721ab4abda2b8c",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/configs/normuon_160m.yaml",
+      "archive_entry": "rain/utils/optim/dion/configs/normuon_160m.yaml",
+      "bytes": 747,
+      "sha256": "2d8d64b8525199740f1d8f7e31ae2edd0e48fe1cc3216f9ee0a8d68ad03e93b2",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/dion/configs/muon_160m.yaml",
+      "archive_entry": "rain/utils/optim/dion/configs/muon_160m.yaml",
+      "bytes": 744,
+      "sha256": "782ee79c0846f1f695e1c58c9530eaef572af066d597f68ed3365e712c53d534",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/psgd/psgd_utils.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/psgd/psgd_utils.py",
+      "bytes": 6926,
+      "sha256": "cc3f91fecb4a665a657c2cd5ddd2b9722b473a7c800359f857bd2f0f87ea864f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/psgd/procrustes_step.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/psgd/procrustes_step.py",
+      "bytes": 3917,
+      "sha256": "b3ded93e2ab18dedbcc5b2f888ca20f3736e8ce53e1a112f3dedb599757bde02",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/psgd/psgd.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/psgd/psgd.py",
+      "bytes": 11879,
+      "sha256": "ee8766b5453132ac31f0e586a7ec963c63b776112f3577bd0a8d97be53cfc12c",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/psgd/__init__.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/psgd/__init__.py",
+      "bytes": 723,
+      "sha256": "479378956828504bb816689e288ef07cf96a72f7161cb0d0fc0a9839e47a3b81",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/psgd/psgd_kron_contractions.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/psgd/psgd_kron_contractions.py",
+      "bytes": 5838,
+      "sha256": "49fe027ce76c055d79d244accfdc442f6b19511fb74ed39ac2471392fa96bc09",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/utils/precondition_schedules.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/utils/precondition_schedules.py",
+      "bytes": 7734,
+      "sha256": "931f428ad7ab0f636fe9cd980df4b2a6c42939b1e1a499f0d8f030848d83923b",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/utils/__init__.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/utils/__init__.py",
+      "bytes": 1775,
+      "sha256": "eab7a53f3ac7c4d0e53d5e65de27fea5353572456cb4e1fefec8bcfb1f92b1f6",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/utils/eig.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/utils/eig.py",
+      "bytes": 11923,
+      "sha256": "3c4b35b344dcd513cd7fa4d4ca69007ce3c9956da15541dd1fc3cd27ee374548",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/soap/soap_utils.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/soap/soap_utils.py",
+      "bytes": 10971,
+      "sha256": "2e0d4306bb432b9e2050a44ff63e0358bc056bbb021457ab06791ed468712ce3",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/soap/soap.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/soap/soap.py",
+      "bytes": 29015,
+      "sha256": "307b869240555a1bf20ee319e873e9a85be45ef3cd612cfa1d76d8f7f942ee8e",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/orthogonalized_optimizers/scion.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/orthogonalized_optimizers/scion.py",
+      "bytes": 4417,
+      "sha256": "9a2d52c1d467e2ddb5e8370d75d2bb8b120a8d291629926b4f7fed89bc8f5381",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/orthogonalized_optimizers/muon_ball.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/orthogonalized_optimizers/muon_ball.py",
+      "bytes": 30644,
+      "sha256": "a0239716680ee04026654db64929b1b5dce34fe68ecda5cde1718e9706b8a420",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/orthogonalized_optimizers/spectral_clipping_utils.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/orthogonalized_optimizers/spectral_clipping_utils.py",
+      "bytes": 3619,
+      "sha256": "49bc683e43ec4bdbb7e450e8fed6389012cb6cda35c3ebb74525b2d3897fdb57",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/orthogonalized_optimizers/spectral_ball_utils.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/orthogonalized_optimizers/spectral_ball_utils.py",
+      "bytes": 31405,
+      "sha256": "5df88dece8b378cea4499765a79d3a7a5cce6435752efcfe68fa12433d68e01e",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/orthogonalized_optimizers/__init__.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/orthogonalized_optimizers/__init__.py",
+      "bytes": 867,
+      "sha256": "1e6a158053726a757a01631f6aa98c3992f88ecc779a5ae82593cd9bcfc33a1a",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/orthogonalized_optimizers/muon.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/orthogonalized_optimizers/muon.py",
+      "bytes": 6814,
+      "sha256": "d81c1517f6db9b8c1805861d3441cec7bfab8826a7061d5f36a7ebe70d33f595",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/orthogonalized_optimizers/spectral_ball.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/orthogonalized_optimizers/spectral_ball.py",
+      "bytes": 29987,
+      "sha256": "5e950ad36e47d02632d76db6930d59d00f65fa363e5ed4a54088e095c8e1eba9",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/orthogonalized_optimizers/muon_utils.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/orthogonalized_optimizers/muon_utils.py",
+      "bytes": 12084,
+      "sha256": "f72c692e4bccaec86328ab28fe1dafa2364986a62339cef9744bbfae89d5c50f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/orthogonalized_optimizers/orthogonalized_optimizer.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/orthogonalized_optimizers/orthogonalized_optimizer.py",
+      "bytes": 11244,
+      "sha256": "8f62c16be9487c2f5e5e47f5bd121462c86df93d96b9b4ee5159f0efb30396dc",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/scalar_optimizers/signum.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/scalar_optimizers/signum.py",
+      "bytes": 3224,
+      "sha256": "f128d7a52e6be38e47d268f12266ee6b8e2abaac2a4e4bd0d9a08548583a0d2d",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/scalar_optimizers/ademamix.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/scalar_optimizers/ademamix.py",
+      "bytes": 9688,
+      "sha256": "2c0790f9fe64cc0d5eada2aa9fbcd2f4c3e7b73c849036323abacc5406e0a0a3",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/scalar_optimizers/lion.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/scalar_optimizers/lion.py",
+      "bytes": 2088,
+      "sha256": "c7d44821a1bbc7eef5f4db886e45a1bd5d95b8bc776b60a061230b90390c804f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/scalar_optimizers/__init__.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/scalar_optimizers/__init__.py",
+      "bytes": 1132,
+      "sha256": "c1cdef2b3b07990168a8fbc9c05fadb6aa1e620d8124e5bc9105dc531002d3f6",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/scalar_optimizers/adam.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/scalar_optimizers/adam.py",
+      "bytes": 3172,
+      "sha256": "4c49e96486e29418ca89ba6bc9f7db14536e1808fe80eb076de9436f4c847caf",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/scalar_optimizers/laprop.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/scalar_optimizers/laprop.py",
+      "bytes": 2953,
+      "sha256": "fb716f22cd80a2ae5c87591cbe07e3777641ebdb5a132c053e38085458d81bb1",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/riemannian_optimizers/normalized_optimizer.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/riemannian_optimizers/normalized_optimizer.py",
+      "bytes": 8893,
+      "sha256": "6fccaeb0a68a0d92b959eb9e83ee473054d32c0b60b16cab46d4564845d40840",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/triton_kernels/syrk.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/triton_kernels/syrk.py",
+      "bytes": 8375,
+      "sha256": "7cc9c6be67ccb3aebd03275e1308399d222a95c0e11d198c163dc308d1b064f1",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/optim/emerging_optimizers/triton_kernels/__init__.py",
+      "archive_entry": "rain/utils/optim/emerging_optimizers/triton_kernels/__init__.py",
+      "bytes": 699,
+      "sha256": "76b0ac234fa150414dc1d9ca459be5f451b03cf8bf7b61a2f1d6eb3849830502",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/transition_matching/DTM/dataset/dataset.py",
+      "archive_entry": "rain/utils/transport/transition_matching/DTM/dataset/dataset.py",
+      "bytes": 6533,
+      "sha256": "a8d4c0b677c432d3d1a3123d237fb6500b21b660638cde29ae59639725da258f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/transition_matching/DTM/dataset/pan_dataset.py",
+      "archive_entry": "rain/utils/transport/transition_matching/DTM/dataset/pan_dataset.py",
+      "bytes": 6634,
+      "sha256": "f815b25fe082f94cb3fb7c3795ba8d9cf6c453d7e2a4cee527a15a2e2871d66f",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/transition_matching/DTM/utils/lr_scheduler.py",
+      "archive_entry": "rain/utils/transport/transition_matching/DTM/utils/lr_scheduler.py",
+      "bytes": 3977,
+      "sha256": "ad32e8b132e5df36e9f486935cc37c7e798db0a9d762119abaa9573008f88baa",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/transition_matching/DTM/utils/model_hook.py",
+      "archive_entry": "rain/utils/transport/transition_matching/DTM/utils/model_hook.py",
+      "bytes": 579,
+      "sha256": "c79ebd3d85d81d847b0584478fdee48e021f86315ea361653847290f17179c60",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/transition_matching/DTM/utils/misc.py",
+      "archive_entry": "rain/utils/transport/transition_matching/DTM/utils/misc.py",
+      "bytes": 5562,
+      "sha256": "6ea35c5b69a9ed8090d8bc1f476b9eb2b176f101c14d88f3ac53f568e570e562",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/transition_matching/DTM/utils/optim_utils.py",
+      "archive_entry": "rain/utils/transport/transition_matching/DTM/utils/optim_utils.py",
+      "bytes": 2459,
+      "sha256": "9ab91d2794ec3796f0602ece9a1d6083c953d797bb5f7cd7643e42f721b09b48",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/transition_matching/DTM/utils/patch_util.py",
+      "archive_entry": "rain/utils/transport/transition_matching/DTM/utils/patch_util.py",
+      "bytes": 903,
+      "sha256": "e5dc53677e6564e95485d0bfe3784b028926fe5f7e296a70f6a895219d63df18",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/transition_matching/DTM/utils/save_channel_images.py",
+      "archive_entry": "rain/utils/transport/transition_matching/DTM/utils/save_channel_images.py",
+      "bytes": 4883,
+      "sha256": "48bdf2321d4d365720e54321370f4e420003f0733a4f43c2ff56745fde399b0a",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/transition_matching/DTM/utils/logger.py",
+      "archive_entry": "rain/utils/transport/transition_matching/DTM/utils/logger.py",
+      "bytes": 4708,
+      "sha256": "99f2af7662a6cf3d691c3ee7e31df5f8dcdcaa6e7aa274accef2448b401eddbc",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/transition_matching/DTM/utils/metric.py",
+      "archive_entry": "rain/utils/transport/transition_matching/DTM/utils/metric.py",
+      "bytes": 5186,
+      "sha256": "aa66a7df8b9ef0f0bfe495b513ab6fe4c47d1ff345b7ca3132248951cb868d61",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/transition_matching/DTM/utils/_metric_legacy.py",
+      "archive_entry": "rain/utils/transport/transition_matching/DTM/utils/_metric_legacy.py",
+      "bytes": 14781,
+      "sha256": "0c06675b2b2a016b02d4c1d86331ee80ed182ca893b96fcabfbc72fd9b2e82aa",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/transition_matching/DTM/utils/linstretch.py",
+      "archive_entry": "rain/utils/transport/transition_matching/DTM/utils/linstretch.py",
+      "bytes": 1630,
+      "sha256": "b4021ba30de28a7a017b2101134aadaf577df16c6af33085ce1b3cb3fd197202",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/transition_matching/DTM/utils/loss_utils.py",
+      "archive_entry": "rain/utils/transport/transition_matching/DTM/utils/loss_utils.py",
+      "bytes": 6359,
+      "sha256": "49559eb79ca1256ac1bfb1d627ea5e40f7e6d5c4fc260e34f8f9aa3fa3a2994d",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/transition_matching/DTM/models/dtm.py",
+      "archive_entry": "rain/utils/transport/transition_matching/DTM/models/dtm.py",
+      "bytes": 8591,
+      "sha256": "783222c2b32a8fad7f45d4f6abbc878570113f64194e9e679e3bbcca46d30137",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/transition_matching/DTM/models/backbone_model.py",
+      "archive_entry": "rain/utils/transport/transition_matching/DTM/models/backbone_model.py",
+      "bytes": 5726,
+      "sha256": "f047dbc669ae9d74d7ff0242aae8669f85519f2c1ca7f895f34123a14025f4e3",
+      "archive_unix_mode": "0o100644"
+    },
+    {
+      "path": "src/utils/transport/transition_matching/DTM/models/head_model.py",
+      "archive_entry": "rain/utils/transport/transition_matching/DTM/models/head_model.py",
+      "bytes": 3243,
+      "sha256": "701172a819a7a61a6619a0dbcad26180ae0234607923009f3444439ba160a6b6",
+      "archive_unix_mode": "0o100644"
+    }
+  ],
+  "python_syntax_target": "3.12"
+}

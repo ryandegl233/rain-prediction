@@ -1,0 +1,10 @@
+_target_: src.networks.unet.UNetModel
+model_channels: 64
+out_channels: 1
+num_res_blocks: 2
+attention_resolutions: []
+channel_mult: [1, 2, 4]
+n_past: 2
+n_future: 2
+use_scale_shift_norm: true
+use_checkpoint: true

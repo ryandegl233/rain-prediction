@@ -1,0 +1,3 @@
+_target_: src.networks.dpt.models.DPTRainPredictionModel
+in_channels: 24
+backbone: vitb_rn50_384
