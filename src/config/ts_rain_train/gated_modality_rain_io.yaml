@@ -1,0 +1,31 @@
+defaults:
+  - gated_modality_rain_trainer
+  - _self_
+
+hydra:
+  run:
+    dir: ./runs/gated_modality_rain_io/${now:%Y-%m-%d}/${now:%H-%M-%S}_${train.log.run_comment}
+
+accelerator:
+  dataloader_config:
+    non_blocking: true
+  project_config:
+    project_dir: runs/gated_modality_rain_io/
+    logging_dir: runs/gated_modality_rain_io/tensorboard
+    total_limit: null
+    automatic_checkpoint_naming: false
+
+dataset:
+  train:
+    batch_size: 1
+    pin_memory: true
+  val:
+    batch_size: 1
+    pin_memory: true
+
+train:
+  resume_path: null
+  init_model_path: null
+  save_every: 10000
+  log:
+    run_comment: gated_modality_rain_io
