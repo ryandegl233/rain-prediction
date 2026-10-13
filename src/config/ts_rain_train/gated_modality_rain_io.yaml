@@ -7,6 +7,7 @@ hydra:
     dir: ./runs/gated_modality_rain_io/${now:%Y-%m-%d}/${now:%H-%M-%S}_${train.log.run_comment}
 
 accelerator:
+  mixed_precision: bf16
   dataloader_config:
     non_blocking: true
   project_config:
@@ -22,6 +23,9 @@ dataset:
   val:
     batch_size: 1
     pin_memory: true
+
+rain_prediction_model:
+  activation_checkpoint: true
 
 train:
   resume_path: null

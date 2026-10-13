@@ -2,7 +2,7 @@
 
 本轮实验使用 `GatedModalityRainModel` 的空间门控，从头训练。独立 I/O trainer 继承我们自己的 `GatedModalityRainTrainer`，修正训练循环使用的 prepared DataLoader，并将每个 batch 的模型输入统一转换为设备上的 float32，供主损失和 rollout 分支共享。原模型、原 trainer、baseline 和同学的源码快照均不修改。
 
-入口为 `src/trainer/gated_modality_rain_io_trainer.py`，配置为 `src/config/ts_rain_train/gated_modality_rain_io.yaml`。其余设置继承已有空间门控配置：30 分钟数据、448×448 输入、4 帧历史和 4 帧未来、BF16、原 loss、原优化器及固定起报 rollout。训练 batch size 和验证 batch size 均为 1。`resume_path` 与 `init_model_path` 均为空，CCC、跨模态 adapter 和局部窗口模块本轮关闭，代码和后续启用能力保留。
+入口为 `src/trainer/gated_modality_rain_io_trainer.py`，配置为 `src/config/ts_rain_train/gated_modality_rain_io.yaml`。其余设置继承已有空间门控配置：30 分钟数据、448×448 输入、4 帧历史和 4 帧未来、原 loss、原优化器及固定起报 rollout。面向 RTX 4090 的 24GB 显存，配置显式启用 BF16 和 activation checkpointing，训练 batch size 和验证 batch size 均为 1。`resume_path` 与 `init_model_path` 均为空，CCC、跨模态 adapter 和局部窗口模块本轮关闭，代码和后续启用能力保留。
 
 ## 更新服务器代码
 
@@ -92,6 +92,14 @@ python -m src.trainer.gated_modality_rain_io_trainer \
 
 启动日志应显示 `spatial_modality_gate=True`，`cross_modal_adapter=False`、`local_window_refiner=False`、`consensus_calibration=False`，以及 prepared loader、`non_blocking=True`、`shared_batch_conversion=True`。结束时应有第 5 步训练、step=5 的验证、checkpoint 保存和 `Training finished.`；确认 loss 与验证指标有限，无 CUDA OOM 或 traceback。
 
+训练入口还会在结束或训练异常后输出 `[CUDA memory] peak allocated=... GiB, peak reserved=... GiB`，统计模型初始化后的训练、验证及保存阶段。该数字是当前进程的 PyTorch 显存峰值；CUDA context 和其他进程的占用仍需结合 `nvidia-smi` 判断。24GB 是否足够以实际测试为准。如果 OOM，保留完整报错及显存输出，再调整独立实验配置的分辨率或模型规模；改变分辨率后需采用相同设置做对照实验。
+
+可在另一个 SSH 终端监控整张 GPU：
+
+```bash
+watch -n 1 nvidia-smi
+```
+
 日志、解析后的配置、TensorBoard 和 checkpoint 位于该次运行的 `runs/gated_modality_rain_io/日期/时间_num8_io_smoke/` 内。检查保存空间：
 
 ```bash
@@ -132,3 +140,5 @@ tmux attach -t gate-io
 既有门控、trainer 和独立框架回归检查有 60 项通过、6 项跳过，另有 `test_original_baseline_sources_are_unchanged` 失败。该测试固定了更早版本的源码指纹，当前 baseline 指纹与本任务开始前的 `c25ec88` 学校服务器提交一致；本次不改动该源码或旧测试。全仓 `src/tests` 检查在收集阶段因本地缺少 `pyproj`、`duckdb`、`diffusers` 出现 5 项错误，尚未完成全仓回归。
 
 上述结果不表示新服务器的 CUDA、真实数据或正式训练已通过；需执行前述服务器检查与 5 步验证。
+
+用户补充 24GB 显存约束后，配置中的 BF16 与 activation checkpointing 改为显式设置，数值仍与原继承值一致；配置契约测试通过，入口的 CPU 训练和最终 checkpoint 保存检查通过。新增 CUDA 峰值输出需在 num8 上确认。
