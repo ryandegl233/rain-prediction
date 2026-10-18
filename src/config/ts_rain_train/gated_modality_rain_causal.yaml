@@ -1,0 +1,59 @@
+defaults:
+  - gated_modality_rain_io
+  - _self_
+
+hydra:
+  run:
+    dir: ./runs/gated_modality_rain_causal/${now:%Y-%m-%d}/${now:%H-%M-%S}_${train.log.run_comment}
+
+accelerator:
+  project_config:
+    project_dir: runs/gated_modality_rain_causal/
+    logging_dir: runs/gated_modality_rain_causal/tensorboard
+    total_limit: null
+    automatic_checkpoint_naming: false
+
+rain_prediction_model:
+  decoder_type: 2d
+  decoder_k_size: 7
+  decoder_condition_mode: none
+  decoder_output_mode: pixels
+  activation_checkpoint: true
+
+dataset:
+  train:
+    batch_size: 2
+  val:
+    batch_size: 1
+    shuffle: false
+    iter_index_mode: sequential
+    drop_last: false
+
+train:
+  resume_path: null
+  init_model_path: null
+  max_steps: 100000
+  save_every: 5000
+  next_pred:
+    target_mode: next_frame
+    block_size: 1
+    sequence_loss:
+      enabled: false
+    rollout_branch:
+      mode: frame
+      rollout_block_size: 1
+      rollout_frames: 4
+      loss_on: all
+      detach_history: true
+      use_gt_future_modalities: false
+  log:
+    run_comment: num8_causal_gate_bs2
+
+val:
+  val_duration: 2000
+  max_val_iters: 415  # All filtered windows in the current 202508/202509 validation split at batch size 1.
+  rollout_mode: frame
+  rollout_block_size: 1
+  rollout_use_gt_future_modalities: false
+  save_visuals: true
+  viz_sample_index: 0
