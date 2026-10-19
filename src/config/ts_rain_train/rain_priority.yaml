@@ -1,0 +1,98 @@
+defaults:
+  - gated_modality_rain_io
+  - _self_
+
+hydra:
+  run:
+    dir: ./runs/rain_priority/${now:%Y-%m-%d}/${now:%H-%M-%S}_${train.log.run_comment}
+
+accelerator:
+  mixed_precision: bf16
+  gradient_accumulation_plugin:
+    num_steps: 2
+    sync_with_dataloader: false
+  project_config:
+    project_dir: runs/rain_priority/
+    logging_dir: runs/rain_priority/tensorboard
+    total_limit: null
+    automatic_checkpoint_naming: false
+
+rain_prediction_model:
+  _target_: src.rain_priority.model.RainPriorityModel
+  gate_mode: temporal
+  spatial_modality_gate_enabled: true
+  decoder_type: 3d
+  activation_checkpoint: true
+
+dataset:
+  train:
+    batch_size: 1
+  val:
+    batch_size: 1
+    drop_last: false
+
+train:
+  max_steps: 100000
+  save_every: 5000
+  resume_path: null
+  init_model_path: null
+  next_pred:
+    sequence_loss:
+      enabled: true
+      context_weight: 1.0
+      future_weight: 1.0
+    rollout_branch:
+      enabled: true
+      weight: 0.2
+      mode: frame
+      rollout_block_size: 1
+      rollout_frames: 4
+      detach_history: true
+      use_gt_future_modalities: false
+      loss_on: all
+      delta_loss:
+        enabled: false
+        weight: 0.0
+  loss_weights:
+    radar: 0.1
+    satellite: 0.1
+    rain: 1.0
+  loss:
+    mode: mse
+    rain_residual:
+      enabled: true
+      delta_weight: 0.0
+      clamp_output: false
+    temporal_diff:
+      enabled: false
+      weight_max: 0.0
+    rain_region_weight:
+      enabled: false
+    rain_event_aux:
+      enabled: false
+  gan:
+    enabled: false
+  priority:
+    rain_only_gate: true
+    gradient_diagnostics_every: 200
+    horizon:
+      enabled: true
+      warmup_steps: 1000
+      update_every: 200
+      ema_decay: 0.8
+      alpha: 0.5
+      temperature: 1.0
+      eps: 1.0e-6
+  log:
+    run_comment: num8_priority_bs1_acc2
+
+val:
+  val_duration: 2000
+  max_val_iters: -1
+  rollout_mode: frame
+  rollout_block_size: 1
+  rollout_history_detach: true
+  rollout_use_gt_future_modalities: false
+  after_roll_next:
+    enabled: false
+  save_visuals: true
