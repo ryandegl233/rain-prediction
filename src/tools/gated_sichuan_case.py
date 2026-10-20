@@ -60,6 +60,17 @@ def find_case_window(
     return matches[0]
 
 
+def validate_case_model_config(model_cfg: DictConfig) -> None:
+    target = model_cfg.get("_target_")
+    if target == "src.gated_modality_rain.model.GatedModalityRainModel":
+        return
+    if target == "src.rain_priority.model.RainPriorityModel":
+        if bool(model_cfg.get("spatial_modality_gate_enabled", True)):
+            raise ValueError("RainPriority case export currently supports only gate-disabled baseline A.")
+        return
+    raise ValueError(f"Unsupported case model: {target}")
+
+
 class CaseRuntime(GatedModalityRainTrainer):
     def __init__(self, cfg: DictConfig, model: torch.nn.Module, *, device: str, precision: str) -> None:
         self.accelerator = Accelerator(cpu=device == "cpu", mixed_precision=precision)
@@ -213,7 +224,7 @@ def save_case_figures(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Old gated-model checkpoint: exact-date free rollout and Sichuan maps."
+        description="Old gated model or rain-priority baseline A: exact-date free rollout and Sichuan maps."
     )
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--step", type=int, default=80000)
@@ -231,8 +242,7 @@ def main() -> None:
     config_path = args.run_dir / "config/config_total.yaml"
     weights = args.run_dir / f"checkpoint-{args.step:08d}/model.safetensors"
     cfg = OmegaConf.load(config_path)
-    if cfg.rain_prediction_model.get("_target_") != "src.gated_modality_rain.model.GatedModalityRainModel":
-        raise ValueError("This tool requires the old GatedModalityRainModel run configuration.")
+    validate_case_model_config(cfg.rain_prediction_model)
     if not weights.is_file():
         raise FileNotFoundError(weights)
     if int(cfg.dataset.n_past) != 4:
@@ -310,6 +320,8 @@ def main() -> None:
         "checkpoint": str(weights.resolve()),
         "step": args.step,
         "weights_kind": "model, not EMA",
+        "model_target": cfg.rain_prediction_model.get("_target_"),
+        "spatial_modality_gate_enabled": cfg.rain_prediction_model.get("spatial_modality_gate_enabled"),
         "weights_sha256": weights_digest,
         "config": str(config_path.resolve()),
         "config_sha256": hashlib.sha256(config_path.read_bytes()).hexdigest(),

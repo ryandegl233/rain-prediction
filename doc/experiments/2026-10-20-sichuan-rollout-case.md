@@ -75,6 +75,27 @@ echo "$OUT"
 
 这些图片是特定日期的案例展示；若该月参与训练，应标为训练期案例，不能当作独立测试集结果。具体归属以原 run 保存的 train/val 输入目录为准。
 
+## 改用 baseline A 的 6000 步模型
+
+更新后的同一入口也接受关闭门控的 `RainPriorityModel`，读取 A 自己的配置和权重。开启时序门控的 E 尚不在此入口的支持范围内。A 的 6000 步保存路径已由上传的 `A.log` 确认。
+
+先同步代码，再设置：
+
+```bash
+RUN=/home/yanjieyu/RainPrediction/runs/rain_priority/2026-10-19/22-10-17_num8_priority_A_clean_6000
+
+OUT="$HOME/RainPrediction/vis_show/sichuan_20250810_A6000_$(date +%Y%m%d_%H%M%S)"
+
+python -m src.tools.gated_sichuan_case \
+  --run-dir "$RUN" \
+  --step 6000 \
+  --first-future "2025-08-10 23:30:00" \
+  --future-frames 12 \
+  --output-dir "$OUT"
+```
+
+四帧历史、时间范围、地理边界和色标与旧模型案例相同，输出位于独立目录。测试直接对比 A 原有 `RainPriorityTrainer._forecast`：前四帧输出一致；后八帧继续回灌自身预测。
+
 ## 本地验证范围
 
 测试覆盖跨日时间、连续窗口匹配、12 步预测回灌、残差累计、模型最大长度检查、原始数组不被绘图修改，以及小尺寸真实 GatedModalityRainModel 的 12 步运行与前 4 步一致性。真实数据和 80000 步权重位于 num8；最终 GPU 推理及实际案例图片由上面的服务器命令生成。

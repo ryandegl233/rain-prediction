@@ -8,7 +8,30 @@ import torch
 from omegaconf import OmegaConf
 
 from src.gated_modality_rain.model import GatedModalityRainModel
-from src.tools.gated_sichuan_case import CaseRuntime, build_case_times, find_case_window, save_case_figures
+from src.rain_priority.model import RainPriorityModel
+from src.rain_priority.trainer import RainPriorityTrainer
+from src.tools.gated_sichuan_case import (
+    CaseRuntime,
+    build_case_times,
+    find_case_window,
+    save_case_figures,
+    validate_case_model_config,
+)
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+def test_priority_case_accepts_only_gate_disabled_baseline(enabled: bool) -> None:
+    cfg = OmegaConf.create(
+        {
+            "_target_": "src.rain_priority.model.RainPriorityModel",
+            "spatial_modality_gate_enabled": enabled,
+        }
+    )
+    if enabled:
+        with pytest.raises(ValueError, match="baseline A"):
+            validate_case_model_config(cfg)
+    else:
+        validate_case_model_config(cfg)
 
 
 def test_case_times_cross_midnight_and_reject_off_grid() -> None:
@@ -117,9 +140,11 @@ def test_plots_preserve_raw_values_and_record_times(tmp_path: Path) -> None:
     assert (tmp_path / "figures/prediction/lead_02_20250811_0000.png").exists()
 
 
-def test_real_gated_model_twelve_steps_preserve_first_four_forecasts() -> None:
+@pytest.mark.parametrize("baseline_a", [False, True])
+def test_real_gated_model_twelve_steps_preserve_first_four_forecasts(baseline_a: bool) -> None:
     torch.set_num_threads(1)
-    model = GatedModalityRainModel(
+    model_type = RainPriorityModel if baseline_a else GatedModalityRainModel
+    model = model_type(
         input_size=8,
         patch_size=2,
         stem_channels=8,
@@ -132,7 +157,7 @@ def test_real_gated_model_twelve_steps_preserve_first_four_forecasts() -> None:
         decoder_pad_mode="zeros",
         stem_pad_mode="zeros",
         max_frames=16,
-        spatial_modality_gate_enabled=True,
+        spatial_modality_gate_enabled=not baseline_a,
         spatial_modality_gate_hidden_channels=4,
         dropout=0.0,
         drop_path=0.0,
@@ -148,6 +173,15 @@ def test_real_gated_model_twelve_steps_preserve_first_four_forecasts() -> None:
     context = torch.rand(1, 12, 4, 8, 8)
     short = runtime.predict(context, past, future[:4])
     long = runtime.predict(context, past, future)
+    if baseline_a:
+        phases = [
+            torch.tensor([[(t.hour * 60 + t.minute) / 1440 for t in times]], dtype=torch.float32)
+            for times in (past, future[:4])
+        ]
+        with torch.inference_mode():
+            reference, _ = RainPriorityTrainer._forecast(runtime, context, phases[0], phases[1])
+        for name in short:
+            torch.testing.assert_close(short[name], reference[name], rtol=0, atol=0)
     for name, channels in (("radar", 1), ("satellite", 10), ("rain", 1)):
         assert long[name].shape == (1, channels, 12, 8, 8)
         assert torch.isfinite(long[name]).all()
