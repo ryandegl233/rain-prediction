@@ -1,0 +1,34 @@
+defaults:
+  - rain_priority
+  - _self_
+
+hydra:
+  run:
+    dir: ./runs/rain_local_fusion/${now:%Y-%m-%d}/${now:%H-%M-%S}_${train.log.run_comment}
+
+accelerator:
+  project_config:
+    project_dir: runs/rain_local_fusion/
+    logging_dir: runs/rain_local_fusion/tensorboard
+
+rain_prediction_model:
+  _target_: src.rain_local_fusion.model.RainLocalFusionModel
+  spatial_modality_gate_enabled: false
+  local_fusion_enabled: true
+  local_fusion_kernel_size: 3
+  local_fusion_hidden_channels: 32
+
+train:
+  max_steps: 6000
+  save_every: 2000
+  priority:
+    horizon:
+      enabled: false
+  scheduler:
+    num_training_steps: 100000
+  log:
+    run_comment: num8_local_R1_6000
+
+val:
+  val_duration: 2000
+  max_val_iters: -1

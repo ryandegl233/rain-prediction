@@ -1,0 +1,10 @@
+defaults:
+  - rain_local_fusion
+  - _self_
+
+rain_prediction_model:
+  local_fusion_kernel_size: 1
+
+train:
+  log:
+    run_comment: num8_local_R0_6000
