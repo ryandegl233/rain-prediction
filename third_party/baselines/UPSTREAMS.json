@@ -1,0 +1,74 @@
+{
+  "retrieved_on": "2026-11-17",
+  "repositories": [
+    {
+      "name": "OpenSTL",
+      "path": "third_party/baselines/OpenSTL",
+      "url": "https://github.com/chengtan9907/OpenSTL.git",
+      "branch": "OpenSTL-Lightning",
+      "commit": "eecf8a3078f0a178dbc7b28723da20f94ce36985",
+      "clean": true,
+      "license_files": [
+        "LICENSE"
+      ],
+      "checkout": "git clone --depth 1"
+    },
+    {
+      "name": "earth-forecasting-transformer",
+      "path": "third_party/baselines/earth-forecasting-transformer",
+      "url": "https://github.com/amazon-science/earth-forecasting-transformer.git",
+      "branch": "main",
+      "commit": "7732b03bdb366110563516c3502315deab4c2026",
+      "clean": true,
+      "license_files": [
+        "LICENSE",
+        "NOTICE"
+      ],
+      "checkout": "git clone --depth 1"
+    },
+    {
+      "name": "AlphaPre",
+      "path": "third_party/baselines/AlphaPre",
+      "url": "https://github.com/linkenghong/AlphaPre.git",
+      "branch": "main",
+      "commit": "64d5195984c72db2692266acc800efa34ff8a4bf",
+      "clean": true,
+      "license_files": [],
+      "checkout": "git clone --depth 1"
+    },
+    {
+      "name": "NPM",
+      "path": "third_party/baselines/NPM",
+      "url": "https://github.com/seominseok0429/Data-driven-Precipitation-Nowcasting-Using-Satellite-Imagery.git",
+      "branch": "main",
+      "commit": "52ca97702f9d9b7e314cf0ce9e053d3aa06c5bea",
+      "clean": true,
+      "license_files": [],
+      "checkout": "git clone --depth 1"
+    },
+    {
+      "name": "pysteps",
+      "path": "third_party/baselines/pysteps",
+      "url": "https://github.com/pySTEPS/pysteps.git",
+      "branch": "main",
+      "commit": "81b819debc1eef054464a990165bf99165856b98",
+      "clean": true,
+      "license_files": [
+        "LICENSE"
+      ],
+      "checkout": "git clone --depth 1"
+    }
+  ],
+  "runtime_packages": {
+    "pysteps": {
+      "version": "1.21.5",
+      "source": "https://pypi.org/project/pysteps/1.21.5/",
+      "note": "The LK adapter uses the installed stable ndarray API. The pinned main-branch checkout above is source reference only and must not be added to PYTHONPATH."
+    }
+  },
+  "npm_dataset": {
+    "url": "https://huggingface.co/datasets/minseok96/SAR2RDR-Dataset",
+    "revision": "8270366c9bd82e7cdd22a3762237ece47d6eeb47",
+    "note": "Upstream README points here; model sources remain in GitHub checkout. Dataset not downloaded."
+  }
+}

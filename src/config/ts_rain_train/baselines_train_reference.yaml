@@ -1,0 +1,25 @@
+# @package _global_
+defaults:
+  - baselines_eval
+  - _self_
+
+hydra:
+  run:
+    dir: runs/baseline_reference/${now:%Y-%m-%d}/${now:%H-%M-%S}_${train.log.run_comment}
+
+accelerator:
+  gradient_accumulation_plugin:
+    num_steps: 8
+  project_config:
+    project_dir: runs/baseline_reference/
+    logging_dir: runs/baseline_reference/tensorboard
+    automatic_checkpoint_naming: false
+    total_limit: null
+
+dataset:
+  train:
+    batch_size: 1
+
+train:
+  log:
+    run_comment: history_only_baselines

@@ -1,0 +1,47 @@
+# @package _global_
+defaults:
+  - rain_trainer_ts_next_frame
+  - _self_
+
+hydra:
+  run:
+    dir: runs/baseline_evaluation/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  job:
+    chdir: false
+
+dataset:
+  val:
+    batch_size: 1
+    shuffle: false
+    drop_last: false
+    iter_index_mode: sequential
+    is_cycled: false
+    aug_enabled: false
+    num_workers: 0
+    persistent_workers: false
+
+train:
+  next_pred:
+    rollout_branch:
+      use_gt_future_modalities: false
+
+val:
+  rollout_use_gt_future_modalities: false
+  after_roll_next:
+    enabled: false
+
+baseline:
+  methods: [persistence, lk]
+  combinations:
+    - [radar, satellite, rain]
+  lk:
+    rain_threshold: 0.02
+    size_opening: 3
+
+evaluation:
+  max_batches: -1
+  progress_every: 25
+  output_dir: null
+  device: cpu
+  reference_checkpoint: null
+  checkpoint_kind: model
