@@ -1,0 +1,147 @@
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+
+defaults:
+  - rain_prediction_model: causal_patch_transformer_diffusion
+  - _self_
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+accelerator:
+  _target_: accelerate.Accelerator
+  mixed_precision: bf16
+  log_with: tensorboard
+  dataloader_config:
+    _target_: accelerate.utils.DataLoaderConfiguration
+    split_batches: false
+    even_batches: false
+    non_blocking: true
+    dispatch_batches: null
+    use_seedable_sampler: true
+    use_stateful_dataloader: true
+  project_config:
+    _target_: accelerate.utils.ProjectConfiguration
+    project_dir: runs/time_series_stage2_ode/
+    logging_dir: runs/time_series_stage2_ode/tensorboard
+    total_limit: 3
+    automatic_checkpoint_naming: true
+  gradient_accumulation_plugin:
+    _target_: accelerate.utils.GradientAccumulationPlugin
+    num_steps: 1
+    adjust_scheduler: true
+    sync_with_dataloader: false
+    sync_each_batch: false
+
+ema:
+  beta: 0.999
+  update_after_step: 1000
+  update_every: 1
+
+dataset:
+  n_past: 5
+  n_futures: 5
+  img_size: 256
+  time_interval: 30
+  train_inp_dirs: []
+  val_inp_dirs: []
+
+  train:
+    _target_: src.dataset.rain_ts_litdata.get_litdata_rain_ts_dataloader
+    inp_dirs: ${dataset.train_inp_dirs}
+    time_interval: ${dataset.time_interval}
+    n_past: ${dataset.n_past}
+    n_futures: ${dataset.n_futures}
+    img_resize: ${dataset.img_size}
+    stack_data: true
+    is_cycled: true
+    use_streaming_loader: false
+    batch_size: 8
+    shuffle: true
+    num_workers: 8
+    persistent_workers: true
+    pin_memory: true
+    drop_last: true
+    prefetch_factor: 2
+
+  val:
+    _target_: src.dataset.rain_ts_litdata.get_litdata_rain_ts_dataloader
+    inp_dirs: ${dataset.val_inp_dirs}
+    time_interval: ${dataset.time_interval}
+    n_past: ${dataset.n_past}
+    n_futures: ${dataset.n_futures}
+    img_resize: ${dataset.img_size}
+    stack_data: true
+    is_cycled: true
+    use_streaming_loader: false
+    batch_size: 4
+    shuffle: false
+    num_workers: 2
+    persistent_workers: true
+    pin_memory: true
+    drop_last: true
+    prefetch_factor: 2
+
+train:
+  seed: 2025
+  max_steps: 100000
+  proj_dir: runs/time_series_stage2_ode
+  save_every: 1000
+  resume_path: null
+  max_grad_norm: 1.0
+  strict_target_isolation: false
+
+  # Keep the same noising process as stage-1 trainer.
+  teacher_forcing:
+    context_noise_max_timestep: 0
+
+  diffusion:
+    num_train_timesteps: 1000
+    beta_start: 0.0001
+    beta_end: 0.02
+    min_timestep: 0
+    max_timestep: 999
+
+  stage2:
+    # Stage-1 checkpoint path (file or directory).
+    teacher_ckpt_path: null
+    teacher_strict_load: false
+    # how to interpret teacher/student network outputs
+    teacher_prediction_target: epsilon
+    student_prediction_target: x0
+    # optional regularization towards GT x0
+    gt_reg_weight: 0.1
+
+  loss_weights:
+    radar: 1.0
+    satellite: 1.0
+    rain: 1.0
+
+  optim:
+    _target_: torch.optim.AdamW
+    _partial_: true
+    lr: 5.0e-5
+    weight_decay: 1.0e-6
+    foreach: true
+
+  scheduler:
+    _target_: src.utils.train_utils.lr_scheduler.get_cosine_schedule_reduced_with_warmup
+    _partial_: true
+    num_warmup_steps: 0
+    num_training_steps: ${train.max_steps}
+    num_cycles: 1
+    reduced_factor: 2
+    min_lr: 1.0e-5
+
+  log:
+    run_comment: stage2_causal_ode_distill
+    log_with_time: true
+    log_every: 10
+
+  debug: true
+
+val:
+  val_duration: 200
+  max_val_iters: 10
+

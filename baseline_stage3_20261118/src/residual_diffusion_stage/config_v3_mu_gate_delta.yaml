@@ -1,0 +1,100 @@
+model:
+  latent_channels: 8
+  history_channels: 12
+  history_patch_size: 16
+  condition_dim: 128
+  condition_heads: 4
+  condition_tokens: 64
+  base_channels: 48
+  channel_mult: [1, 2, 4, 6]
+  train_steps: 1000
+  sample_steps: 30
+  gradient_checkpointing: true
+  use_deterministic_condition: true
+  corrector_base_channels: 16
+  maximum_correction: 2.0
+  initial_gate_logit: -2.8
+  corrector_use_lead_embedding: true
+  maximum_forecast_leads: 8
+  corrector_use_occurrence_head: true
+  initial_occurrence_logit: -2.2
+
+ae_loss:
+  global_l1_weight: 1.0
+  active_l1_weight: 2.0
+  bias_weight: 1.0
+  std_weight: 0.5
+  active_threshold: 0.01
+  # t+1 was the only lead with clear heavy-rain peak compression.
+  # These terms use physical target rain only to focus AE capacity there.
+  lead0_peak_threshold: 0.1
+  lead0_peak_weight: 3.0
+  lead0_peak_intensity_cap: 4.0
+  lead0_peak_loss_weight: 1.5
+  lead0_gradient_loss_weight: 0.15
+
+corrector_loss:
+  global_l1_weight: 1.0
+  active_l1_weight: 3.0
+  dry_false_alarm_weight: 4.0
+  residual_l1_weight: 0.5
+  bias_weight: 0.5
+  dry_gate_weight: 0.2
+  # Keep soft CSI fixed at 0.1 for this ablation.
+  soft_csi_weight: 0.1
+  active_threshold: 0.01
+  soft_csi_thresholds: [0.01, 0.1, 0.2, 0.5]
+  soft_csi_temperature: 0.02
+  graded_thresholds: [0.1, 0.5, 1.0]
+  graded_weights: [1.0, 1.5, 2.5]
+  graded_l1_weight: 0.5
+  occurrence_positive_weight: 4.0
+  occurrence_focal_gamma: 2.0
+  occurrence_loss_weight: 0.1
+  local_support_scales: [3, 5]
+  local_support_loss_weight: 0.1
+  false_alarm_support_scale: 5
+  outside_support_false_alarm_weight: 2.0
+  metric_thresholds: [0.01, 0.1, 0.2, 0.5, 1.0]
+
+diffusion_loss:
+  noise_weight: 1.0
+  rainfall_l1_weight: 1.0
+  active_l1_weight: 1.0
+  # Emphasize large decoded residuals without letting them dominate all pixels.
+  intensity_l1_weight: 0.5
+  intensity_thresholds: [0.1, 0.5, 1.0]
+  intensity_weights: [1.0, 1.5, 2.5]
+  bias_weight: 0.25
+  std_weight: 0.25
+  direction_weight: 0.05
+  zero_mean_weight: 0.1
+  active_threshold: 0.01
+  x0_clip: 8.0
+
+training:
+  ae_epochs: 6
+  corrector_epochs: 25
+  diffusion_epochs: 40
+  learning_rate: 1.0e-4
+  corrector_learning_rate: 1.0e-4
+  minimum_learning_rate: 1.0e-6
+  weight_decay: 1.0e-2
+  gradient_clip_norm: 1.0
+  batch_size: 4
+  gradient_accumulation_steps: 1
+  max_train_batches: 1500
+  max_val_batches: 60
+  sample_val_batches: 20
+  latent_calibration_batches: 128
+  seed: 2025
+
+evaluation:
+  primary_thresholds: [0.01, 0.1, 0.2, 0.5]
+  probability_plot_thresholds: [0.1, 0.2, 0.5]
+  extended_thresholds: [0.01, 0.03, 0.05, 0.1, 0.2, 0.3, 0.5, 1.0]
+  ensemble_size: 16
+  ddim_steps: 30
+  max_val_batches: 60
+  reliability_bins: 10
+  stochastic_scales: [0.0, 0.25, 0.5, 0.75, 1.0]

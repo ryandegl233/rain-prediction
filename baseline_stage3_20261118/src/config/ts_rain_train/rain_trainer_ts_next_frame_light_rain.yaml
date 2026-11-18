@@ -1,0 +1,42 @@
+defaults:
+  - rain_trainer_ts_next_frame
+  - _self_
+
+hydra:
+  run:
+    dir: runs/next_frame_light_rain/${now:%Y-%m-%d}/${now:%H-%M-%S}_${train.log.run_comment}
+
+accelerator:
+  project_config:
+    project_dir: runs/next_frame_light_rain/
+    logging_dir: runs/next_frame_light_rain/tensorboard
+
+train:
+  max_steps: 20000
+  resume_path: null
+  init_model_path: /home/dongchenwang/RainPrediction/runs/next_frame_final/2026-10-12/20-17-52_stage1_next_frame_block/checkpoints/step_00070000/model.safetensors
+
+  loss:
+    light_rain_occurrence:
+      enabled: true
+      weight: 2.0e-4
+      warmup_steps: 2000
+      thresholds: [0.01, 0.05]
+      temperatures: [0.005, 0.01]
+      threshold_weights: [1.0, 0.5]
+      false_alarm_weight: 1.0
+      miss_weight: 1.0
+
+  optim:
+    lr: 5.0e-5
+
+  scheduler:
+    num_training_steps: ${train.max_steps}
+    min_lr: 1.0e-6
+
+  log:
+    run_comment: light_rain_occurrence_finetune
+
+val:
+  val_duration: 1000
+  csi_thresholds: [0.01, 0.05, 0.1]

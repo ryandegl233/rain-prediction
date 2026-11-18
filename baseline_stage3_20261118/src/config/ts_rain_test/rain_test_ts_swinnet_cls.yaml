@@ -1,0 +1,125 @@
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+
+defaults:
+  #- rain_prediction_model:  gla_assp
+  - rain_prediction_model: swinnet
+  - _self_
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+rain_prediction_model:
+  n_past: ${dataset.n_past}
+  output_frames: ${dataset.n_futures}
+
+accelerator:
+  _target_: accelerate.Accelerator
+  mixed_precision: bf16
+  log_with: tensorboard
+  dataloader_config:
+    _target_: accelerate.utils.DataLoaderConfiguration
+    split_batches: False
+    even_batches: False
+    non_blocking: True
+    dispatch_batches: None
+    use_seedable_sampler: true
+    use_stateful_dataloader: false
+  project_config:
+    _target_: accelerate.utils.ProjectConfiguration
+    project_dir: runs/time_series_prediction/
+    logging_dir: runs/time_series_prediction/tensorboard
+    total_limit: 3
+    automatic_checkpoint_naming: true
+  gradient_accumulation_plugin:
+    _target_: accelerate.utils.GradientAccumulationPlugin
+    num_steps: 1
+    adjust_scheduler: true
+    sync_with_dataloader: false
+    sync_each_batch: false
+
+dataset:
+  n_past: 2
+  n_futures: 2
+  img_size: 256
+  time_interval: 10
+  center_latlon: [26.0, 106.0]
+  patch_size: 256
+
+  val:
+    _target_: src.dataset.rain_ts_litdata_swinnet.get_dataloader
+    data_dirs:
+      #- /Data2/ZihanCao/RainDataset2025/litdata_train_2023_2025/litdata_interval_10/202509
+      - /home/rainpred/RainPrediction/data/litdata_train_2023_2025/litdata_interval_10/202604
+      #- /Data2/ZihanCao/RainDataset2025/litdata_train_2025/litdata_interval_30/202509
+    center_latlon: ${dataset.center_latlon}
+    time_interval: ${dataset.time_interval}
+    n_past: ${dataset.n_past}
+    n_futures: ${dataset.n_futures}
+    img_resize: ${dataset.img_size}
+    patch_size: ${dataset.patch_size}
+    batch_size: 4
+    num_workers: 12
+    shuffle: false
+
+    is_train: false
+    min_rain: 0.1
+    min_ratio: 0.03
+    cache_dir: "__cache__test_202509"
+
+  #val:
+  #  _target_: src.dataset.rain_ts_dataset_swinnet.get_dataloader_filter
+  #   #_target_: src.dataset.rain_ts_dataset.get_dataloader_crop
+  #  use_wids: true
+  #  index_file: /home/rainpred/RainPrediction/DATA/wds_interval_30/test/shardindex.json
+  #  n_past: ${dataset.n_past}
+    #time_interval: ${dataset.time_interval}
+  #  time_interval: 30
+  #  n_futures: ${dataset.n_futures}
+  #  stack_data: true
+  #  img_resize: ${dataset.img_size}
+  # expand_rain: true
+  #  shuffle: false
+  #  num_workers: 2
+  #  cache_dir: "__cache__val__"  ## 使用验证专用缓存目录
+  #  is_train: false
+
+  #  min_rain: 0.1
+  #  min_ratio: 0.03
+
+test:
+  strong_threshold: 0
+  bounds: [0, 0.01, 0.1, 0.2, 0.5, 10]
+  cumulative: true
+  max_test_batches: -1
+  vis:
+    enabled: true
+    max_samples: 5
+    only_strong_samples: true
+    out_dir: outputs/test_vis_swinnet_cls
+    file_prefix: cls_vis
+    n_past_frames: 2
+    n_future_frames: 5
+    dpi: 200
+
+
+
+val:
+  # 0 = strict
+  # 1 = tolerance 1 px
+  # 2 = tolerance2 px
+  tolerance_px: 0
+
+checkpoints:
+  #checkpoint_path: /home/rainpred/RainPrediction/runs/swinnet_cls_10min_AR/2026-03-28_00-12-23_rain_train_pasts_n=5_future_n=1/checkpoints/checkpoint_76
+  #checkpoint_path: /home/rainpred/RainPrediction/runs/time_series_prediction_gla_cls/2025-11-13_14-18-54_rain_train_pasts_n=10_future_n=1/checkpoints/checkpoint_10
+  #ema_load_path: /home/rainpred/RainPrediction/runs/time_series_prediction_swinnet_cls_testrain/2026-02-05_23-24-34_rain_train_pasts_n=5_future_n=1/ema
+  #ema_load_path: /home/rainpred/RainPrediction/runs/swinnet_cls_10min_AR/2026-03-25_23-15-48_rain_train_pasts_n=5_future_n=5/ema  #v2
+  #ema_load_path: /home/rainpred/RainPrediction/runs/swinnet_cls_testrain_10min/2026-02-12_01-09-43_rain_train_pasts_n=5_future_n=1/ema   #v0
+  #ema_load_path: /home/rainpred/RainPrediction/runs/swinnet_cls_testrain_10min/2026-03-06_21-54-21_rain_train_pasts_n=5_future_n=5/ema  #v0
+  #ema_load_path: /home/rainpred/RainPrediction/runs/swinnet_cls_10min_AR/2026-03-28_00-12-23_rain_train_pasts_n=5_future_n=1/ema  #v2
+  #ema_load_path: /home/rainpred/RainPrediction/runs/swinnet_cls_10min_AR/2026-03-29_23-08-50_rain_train_pasts_n=5_future_n=5/ema  #v3
+  #ema_load_path: /home/rainpred/RainPrediction/runs/baseline_reg_10min_multimodal/2026-04-06_00-17-06_baseline_reg_pasts_n=5_future_n=1/ema
+  #ema_load_path: /home/rainpred/RainPrediction/runs/swinnet_cls_30min_AR/2026-04-07_22-57-23_rain_train_pasts_n=5_future_n=5/ema   #30分钟v4
+  ema_load_path: /home/rainpred/RainPrediction/runs/swinnet_cls_10min_AR/2026-05-09_23-55-33_rain_train_pasts_n=5_future_n=5/ema

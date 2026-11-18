@@ -1,0 +1,12 @@
+# @package _global_
+defaults:
+  - baseline_stage3_train
+  - _self_
+
+hydra:
+  run:
+    dir: runs/baseline_stage3_eval/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+evaluation:
+  max_batches: -1
+

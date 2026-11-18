@@ -1,0 +1,30 @@
+# @package _global_
+baseline_model:
+  name: npm
+  options:
+    image_size: ${dataset.img_size}
+    context_frames: 4
+    in_channels: 10
+    hidden: 64
+    spatial_depth: 4
+    temporal_depth: 8
+    translator_width: 30
+    translator_downsamples: 4
+    translator_residual_blocks: 9
+    translator_norm: BatchNorm2d
+baseline:
+  methods: []
+  scenarios: [satellite_only]
+train:
+  loss:
+    rain_residual:
+      enabled: false
+  next_pred:
+    missing_modality:
+      enabled: false
+      anchor_first_frame: false
+    rollout_branch:
+      enabled: false
+      use_gt_future_modalities: false
+val:
+  rollout_use_gt_future_modalities: false

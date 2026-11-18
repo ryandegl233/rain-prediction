@@ -1,0 +1,9 @@
+/runs/
+/outputs/
+/data2
+/PACKAGE_MANIFEST.json
+/artifacts/*
+!/artifacts/reference_profile.json
+!/artifacts/deep_parameter_profiles.json
+!/artifacts/deep_verification.json
+!/artifacts/pytest-all-baselines.xml

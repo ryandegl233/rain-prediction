@@ -1,0 +1,9 @@
+name: simvp
+options:
+  image_size: ${dataset.img_size}
+  context_frames: 7
+  in_channels: 12
+  hid_S: 64
+  hid_T: 448
+  N_S: 4
+  N_T: 8

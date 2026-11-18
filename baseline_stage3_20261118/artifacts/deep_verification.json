@@ -1,0 +1,48 @@
+{
+  "date": "2026-11-18",
+  "pytest": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "57",
+    "time": "68.733",
+    "timestamp": "2026-11-18T17:21:21.518468+08:00",
+    "hostname": "RyandeGL_laptop"
+  },
+  "warnings": 26,
+  "warning_context": "Upstream TorchScript deprecation, meshgrid indexing and pySTEPS covariance warnings on synthetic fields; all assertions pass.",
+  "source_files_verified_unchanged": 398,
+  "source_zip_sha256": "d372d20c2a2c5802a31a19dc6d0185db1bd204f3f06166cb5cc5288f62111ce9",
+  "baseline_methods": [
+    "persistence",
+    "lk",
+    "convlstm",
+    "predrnn_v2",
+    "simvp",
+    "earthformer",
+    "alphapre",
+    "npm"
+  ],
+  "deep_model_profiles": "deep_parameter_profiles.json",
+  "cli_smoke": [
+    "SimVP synthetic train and standalone evaluate",
+    "NPM synthetic train and standalone evaluate"
+  ],
+  "review_findings_resolved": [
+    "AlphaPre native residual supervision and linear rain amplitude",
+    "Resume training signature and inference output convention checks",
+    "Training precision restricted to no/bf16",
+    "Unsupported objective switches fail before training"
+  ],
+  "validation_scope": "Actual reduced models for all six methods: teacher-forced/rollout backward, parameter update, strict model and EMA loading, resume, completed-step resume, shared evaluation. Exact full-config parameter counts. NPM default448 forward and defaultwidth32 backward/update. AlphaPre448 FFT uses small width. No real-data GPU training.",
+  "delivery": "Git commit and push; no new ZIP",
+  "scheduler_note": "Original min_lr=1e-6 is LambdaLR multiplier, not absolute LR; final-config base2e-5 gives floor2e-11; behavior preserved.",
+  "clean_staged_checkout": {
+    "passed": 55,
+    "skipped": 2,
+    "failures": 0,
+    "reason_for_skips": "Optional source-equivalence tests require external original checkouts; runtime, checkpoint and vendor-integrity tests pass without them."
+  },
+  "staged_source_blob_verification": "398 Git index blobs match supplied source SHA256 byte-for-byte; src/** -text prevents line-ending normalization."
+}

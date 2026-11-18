@@ -1,0 +1,43 @@
+# @package _global_
+defaults:
+  - rain_trainer_ts_next_frame_missing_modality_stage3_detach_off
+  - _self_
+
+hydra:
+  run:
+    dir: runs/baseline_stage3/${now:%Y-%m-%d}/${now:%H-%M-%S}_${train.log.run_comment}
+  job:
+    chdir: false
+
+rain_prediction_model:
+  _target_: src.trainer.rain_trainer_ts_next_frame_missing_modality.RainCausalPatchTransformerMissingModality
+
+train:
+  max_steps: 70000
+  log:
+    run_comment: stage3_baselines_70k
+
+dataset:
+  val:
+    drop_last: false
+    shuffle: false
+    aug_enabled: false
+    iter_index_mode: sequential
+
+baseline:
+  methods: [persistence, lk]
+  scenarios: [full, sampled]
+  lk:
+    rain_threshold: 0.02
+    size_opening: 3
+
+evaluation:
+  mixed_precision: ${accelerator.mixed_precision}
+  max_batches: 60
+  progress_every: 25
+  mask_seed: 2025
+  reference_checkpoint: null
+  checkpoint_kind: model
+  device: cpu
+  output_dir: null
+

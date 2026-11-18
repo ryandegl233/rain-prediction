@@ -1,0 +1,51 @@
+defaults:
+  - rain_trainer_ts_next_frame_missing_modality
+  - _self_
+
+hydra:
+  run:
+    dir: runs/next_frame_final_stage3_detach_off/${now:%Y-%m-%d}/${now:%H-%M-%S}_${train.log.run_comment}
+
+accelerator:
+  project_config:
+    project_dir: runs/next_frame_final_stage3_detach_off/
+    logging_dir: runs/next_frame_final_stage3_detach_off/tensorboard
+
+dataset:
+  train:
+    batch_size: 2
+    # Fewer workers to reduce host RAM pressure (stage2 was SIGKILLed by host memory pressure).
+    num_workers: 2
+  val:
+    num_workers: 2
+
+train:
+  max_steps: 10000
+  save_every: 1000
+  checkpoint:
+    keep_recent: 2
+    # Archive interval = save_every * archive_every = 2000 steps.
+    archive_every: 2
+  resume_path: null
+  init_model_path: /home/dongchenwang/RainPrediction/runs/next_frame_final_stage3_detach_off/init/stage2_24k_ema/model.safetensors
+
+  next_pred:
+    rollout_branch:
+      use_gt_future_modalities: true
+      detach_history: true
+      detach_rain_anchor: false
+
+  optim:
+    lr: 2.0e-5
+
+  scheduler:
+    num_warmup_steps: 300
+    num_training_steps: ${train.max_steps}
+    min_lr: 1.0e-6
+
+  log:
+    run_comment: stage3_detach_off_from_stage2_24k_ema
+
+val:
+  val_duration: 1000
+  rollout_use_gt_future_modalities: true

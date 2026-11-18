@@ -1,0 +1,327 @@
+hydra:
+  output_subdir: hydra_config
+  run:
+    dir: runs/next_frame_final_10min/${now:%Y-%m-%d}/${now:%H-%M-%S}_${train.log.run_comment}
+
+defaults:
+  - rain_prediction_model: causal_patch_transformer_next_frame
+  - _self_
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+accelerator:
+  _target_: accelerate.Accelerator
+  mixed_precision: bf16
+  log_with: tensorboard
+  dataloader_config:
+    _target_: accelerate.utils.DataLoaderConfiguration
+    split_batches: false
+    even_batches: false
+    non_blocking: true
+    dispatch_batches: null
+    use_seedable_sampler: true
+    use_stateful_dataloader: false
+  project_config:
+    _target_: accelerate.utils.ProjectConfiguration
+    project_dir: runs/next_frame_final_10min/
+    logging_dir: runs/next_frame_final_10min/tensorboard
+    total_limit: null
+    automatic_checkpoint_naming: false
+  gradient_accumulation_plugin:
+    _target_: accelerate.utils.GradientAccumulationPlugin
+    num_steps: 1
+    adjust_scheduler: true
+    sync_with_dataloader: false
+    sync_each_batch: false
+
+ema:
+  beta: 0.999
+  update_after_step: 1000
+  update_every: 1
+
+dataset:
+  n_past: 4
+  n_futures: 4
+  img_size: 448
+  time_interval: 10
+  train_inp_dirs:
+    # 202305 的 pairs/index.json 仅索引了 4 条样本，与 metadata.parquet (4095) 行数不匹配，故默认注释跳过
+    # - /home/dongchenwang/RainPrediction/data2/litdata_train_2023_2025/litdata_interval_10/202305
+    - /home/dongchenwang/RainPrediction/data2/litdata_train_2023_2025/litdata_interval_10/202306
+    - /home/dongchenwang/RainPrediction/data2/litdata_train_2023_2025/litdata_interval_10/202307
+    - /home/dongchenwang/RainPrediction/data2/litdata_train_2023_2025/litdata_interval_10/202308
+    - /home/dongchenwang/RainPrediction/data2/litdata_train_2023_2025/litdata_interval_10/202309
+    # - /home/dongchenwang/RainPrediction/data2/litdata_train_2023_2025/litdata_interval_10/202310
+    - /home/dongchenwang/RainPrediction/data2/litdata_train_2023_2025/litdata_interval_10/202506
+    - /home/dongchenwang/RainPrediction/data2/litdata_train_2023_2025/litdata_interval_10/202507
+  val_inp_dirs:
+    - /home/dongchenwang/RainPrediction/data2/litdata_train_2023_2025/litdata_interval_10/202508
+    - /home/dongchenwang/RainPrediction/data2/litdata_train_2023_2025/litdata_interval_10/202509
+  rain_norm:
+    mean: 0.004600618807
+    std: 0.047935366050
+  modality_zero_centering: false
+  value_clip:
+    enabled: true
+    radar_min: 0.0
+    radar_max: 60.0
+    satellite_min: 0.0
+    satellite_max: 300.0
+    rain_min: 0.0
+    rain_max: null
+  rain_ratio_filter:
+    # 生成 metadata_rain_ratio.parquet 后会自动启用过滤；若尚未生成，训练器启动时会自动检测并降级为 false
+    enabled: true
+    file_name: metadata_rain_ratio.parquet
+    column: rain_ratio_gt_0p02
+    min_value: 0.02
+    mode: future_any
+  augmentation:
+    train_enabled: true
+    val_enabled: false
+    random_crop_prob: 0.5
+    random_crop_min_scale: 0.8
+    random_crop_max_scale: 1.0
+    random_crop_keep_size: true
+    temporal_reverse_prob: 0.1
+
+  train:
+    _target_: src.dataset.rain_ts_litdata.get_litdata_rain_ts_dataloader
+    inp_dirs: ${dataset.train_inp_dirs}
+    time_interval: ${dataset.time_interval}
+    n_past: ${dataset.n_past}
+    n_futures: ${dataset.n_futures}
+    img_resize: ${dataset.img_size}
+    stack_data: true
+    index_file_name: null
+    modality_zero_centering: ${dataset.modality_zero_centering}
+    rain_norm_mean: ${dataset.rain_norm.mean}
+    rain_norm_std: ${dataset.rain_norm.std}
+    clip_values: ${dataset.value_clip.enabled}
+    radar_clip_min: ${dataset.value_clip.radar_min}
+    radar_clip_max: ${dataset.value_clip.radar_max}
+    satellite_clip_min: ${dataset.value_clip.satellite_min}
+    satellite_clip_max: ${dataset.value_clip.satellite_max}
+    rain_clip_min: ${dataset.value_clip.rain_min}
+    rain_clip_max: ${dataset.value_clip.rain_max}
+    rain_ratio_filter_enabled: ${dataset.rain_ratio_filter.enabled}
+    rain_ratio_filter_file_name: ${dataset.rain_ratio_filter.file_name}
+    rain_ratio_filter_column: ${dataset.rain_ratio_filter.column}
+    rain_ratio_filter_min_value: ${dataset.rain_ratio_filter.min_value}
+    rain_ratio_filter_mode: ${dataset.rain_ratio_filter.mode}
+    aug_enabled: ${dataset.augmentation.train_enabled}
+    aug_random_crop_prob: ${dataset.augmentation.random_crop_prob}
+    aug_random_crop_min_scale: ${dataset.augmentation.random_crop_min_scale}
+    aug_random_crop_max_scale: ${dataset.augmentation.random_crop_max_scale}
+    aug_random_crop_keep_size: ${dataset.augmentation.random_crop_keep_size}
+    aug_temporal_reverse_prob: ${dataset.augmentation.temporal_reverse_prob}
+    batching_method: per_stream
+    iterate_over_all: true
+    is_cycled: false
+    use_streaming_loader: true
+    batch_size: 2
+    shuffle: true
+    num_workers: 4
+    persistent_workers: true
+    pin_memory: true
+    drop_last: true
+    prefetch_factor: 2
+    iter_index_mode: shuffle_each_epoch
+
+  val:
+    _target_: src.dataset.rain_ts_litdata.get_litdata_rain_ts_dataloader
+    inp_dirs: ${dataset.val_inp_dirs}
+    time_interval: ${dataset.time_interval}
+    n_past: ${dataset.n_past}
+    n_futures: ${dataset.n_futures}
+    img_resize: ${dataset.img_size}
+    stack_data: true
+    index_file_name: null
+    modality_zero_centering: ${dataset.modality_zero_centering}
+    rain_norm_mean: ${dataset.rain_norm.mean}
+    rain_norm_std: ${dataset.rain_norm.std}
+    clip_values: ${dataset.value_clip.enabled}
+    radar_clip_min: ${dataset.value_clip.radar_min}
+    radar_clip_max: ${dataset.value_clip.radar_max}
+    satellite_clip_min: ${dataset.value_clip.satellite_min}
+    satellite_clip_max: ${dataset.value_clip.satellite_max}
+    rain_clip_min: ${dataset.value_clip.rain_min}
+    rain_clip_max: ${dataset.value_clip.rain_max}
+    rain_ratio_filter_enabled: ${dataset.rain_ratio_filter.enabled}
+    rain_ratio_filter_file_name: ${dataset.rain_ratio_filter.file_name}
+    rain_ratio_filter_column: ${dataset.rain_ratio_filter.column}
+    rain_ratio_filter_min_value: ${dataset.rain_ratio_filter.min_value}
+    rain_ratio_filter_mode: ${dataset.rain_ratio_filter.mode}
+    aug_enabled: ${dataset.augmentation.val_enabled}
+    aug_random_crop_prob: 0.0
+    aug_random_crop_min_scale: 1.0
+    aug_random_crop_max_scale: 1.0
+    aug_random_crop_keep_size: ${dataset.augmentation.random_crop_keep_size}
+    aug_temporal_reverse_prob: 0.0
+    batching_method: per_stream
+    iterate_over_all: true
+    is_cycled: false
+    use_streaming_loader: true
+    batch_size: 4
+    shuffle: false
+    num_workers: 4
+    persistent_workers: true
+    pin_memory: false
+    drop_last: true
+    prefetch_factor: 2
+    iter_index_mode: sequential
+
+train:
+  seed: 2025
+  max_steps: 114000
+  proj_dir: null
+  save_every: 1000
+  checkpoint:
+    keep_recent: 2
+    archive_every: 10
+  resume_path: /home/dongchenwang/RainPrediction/runs/next_frame_final/2026-11-07/18-43-55_stage1_next_frame_missing_modality/checkpoints/step_00084000
+  max_grad_norm: 1.0
+  strict_target_isolation: false
+
+  next_pred:
+    target_mode: next_frame
+    block_size: 1
+    sequence_loss:
+      enabled: true
+      context_weight: 1.0
+      future_weight: 1.0
+    rollout_branch:
+      enabled: true
+      weight: 0.5
+      mode: frame
+      rollout_block_size: 1
+      rollout_frames: 4
+      detach_history: true
+      detach_rain_anchor: true
+      history_window_frames: 7
+      use_gt_future_modalities: false
+      loss_on: rain
+      delta_loss:
+        enabled: false
+        weight: 1.0
+    missing_modality:
+      enabled: true
+      sampling_mode: per_frame_combinations
+      anchor_first_frame: true
+      full_modality_prob: 0.6
+      mask_future_seed_in_sequence_loss: true
+      drop_probs:
+        radar: 0.15
+        satellite: 0.15
+        rain: 0.05
+      min_available_modalities: 1
+
+  loss_weights:
+    radar: 1.0
+    satellite: 1.0
+    rain: 2.0
+
+  loss:
+    mode: mse
+    rain_residual:
+      enabled: true
+      clamp_output: false
+      min_value: 0.0
+    temporal_diff:
+      enabled: false
+      weight_init: 0.0
+      weight_max: 3
+      warmup_steps: 3000
+      apply_on: rain
+      radar_guided:
+        enabled: false
+        alpha: 3.0
+        echo_beta: 1
+        max_weight: 8.0
+        eps: 1.0e-6
+    rain_region_weight:
+      enabled: false
+      alpha: 2.0
+      r0: 0.05
+      gamma: 1.0
+    rain_event_aux:
+      enabled: false
+      type: bce
+      thresholds: [0.1, 0.3, 0.5]
+      weight: 0.2
+      logit_scale: 10.0
+      focal_gamma: 2.0
+      focal_alpha: 0.25
+
+  gan:
+    enabled: false
+    max_grad_norm: 1.0
+    discriminator:
+      _target_: src.networks.GAN.patchgan3d.PatchGAN3D
+      context_channels: 12
+      target_channels: 12
+      base_channels: 64
+      channel_multipliers: [1, 2, 4, 8]
+      norm_layer: rmsnorm2dfp32
+      norm_max_groups: 32
+      act_negative_slope: 0.2
+    loss:
+      type: ns
+      g_weight: 0.1
+      d_weight: 1.0
+      r1_weight: 0.0
+      r2_weight: 0.0
+    optimizer:
+      _target_: torch.optim.AdamW
+      _partial_: true
+      lr: 2.0e-4
+      betas: [0.0, 0.99]
+      weight_decay: 0.0
+    scheduler:
+      _target_: src.utils.train_utils.lr_scheduler.get_cosine_schedule_reduced_with_warmup
+      _partial_: true
+      num_warmup_steps: 0
+      num_training_steps: ${train.max_steps}
+      num_cycles: 1
+      reduced_factor: 2
+      min_lr: 1.0e-5
+
+  optim:
+    _target_: torch.optim.AdamW
+    _partial_: true
+    lr: 3.0e-4
+    betas: [0.9, 0.95]
+    weight_decay: 1.0e-4
+
+  scheduler:
+    _target_: src.utils.train_utils.lr_scheduler.get_cosine_schedule_reduced_with_warmup
+    _partial_: true
+    num_warmup_steps: 0
+    num_training_steps: ${train.max_steps}
+    num_cycles: 1
+    reduced_factor: 2
+    min_lr: 1.0e-5
+
+  log:
+    run_comment: stage1_next_frame_missing_modality_10min
+    log_with_time: true
+    log_every: 10
+
+  debug: false
+
+val:
+  val_duration: 2000
+  max_val_iters: 60
+  rollout_mode: frame
+  rollout_block_size: ${train.next_pred.block_size}
+  rollout_history_detach: true
+  rollout_use_gt_future_modalities: false
+  after_roll_next:
+    enabled: false
+    roll_frames: ${train.next_pred.block_size}
+    detach_history: true
+  metric_data_range: 1.0
+  csi_thresholds: [0.1, 0.3, 0.5]
+  save_visuals: true
+  viz_sample_index: -1
+  viz_satellite_channel: 0

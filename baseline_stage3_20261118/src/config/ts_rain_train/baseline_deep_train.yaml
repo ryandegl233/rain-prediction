@@ -1,0 +1,25 @@
+# @package _global_
+defaults:
+  - baseline_stage3_train
+  - _self_
+  - baseline_model: simvp
+
+hydra:
+  run:
+    dir: runs/deep_baselines/${baseline_model.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}_${train.log.run_comment}
+
+train:
+  init_model_path: null
+  resume_path: null
+  log:
+    run_comment: ${baseline_model.name}_70k
+
+deep:
+  device: auto
+  training_scenario: sampled
+  activation_checkpoint: true
+  auxiliary_weights:
+    decoupling: 0.1
+
+evaluation:
+  device: cuda

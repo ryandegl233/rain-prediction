@@ -1,0 +1,28 @@
+{
+  "upstream": "https://github.com/chengtan9907/OpenSTL",
+  "commit": "eecf8a3078f0a178dbc7b28723da20f94ce36985",
+  "license": "Apache-2.0",
+  "source_sha256": {
+    "openstl/modules/convlstm_modules.py": "3112b408a896fde805b41b809a717ec405110ac4d4e15550140ec425942609a8",
+    "openstl/modules/predrnnv2_modules.py": "41921908ce15f298c91e2cc9ee4ca7e18267d0bc75759ec0aa6963c1d9fe0602",
+    "LICENSE": "5182ba8baeb65796ed9818e90d92e7bb4f8d313526bcc1f1114b4fe141651c4f",
+    "openstl/modules/simvp_modules.py": "f2955d6066afc9eddb79fe7155dc65a9c1b7d2f7636d3bdb2b0096b93686af5d",
+    "openstl/models/simvp_model.py": "787246801b14dba9fa64daae911d1cdcde3e4c09bcb64c9e7ce1e8a9160c0332",
+    "openstl/models/convlstm_model.py": "53ec4d107d962df9689179b3f403a433e89a5517012adb854d08b2d0b5de52e0",
+    "openstl/models/predrnnv2_model.py": "6492f40e7b8322c1ef6c8a415016b70d36e9c8e69e0ae518d41d14f513eac440",
+    "openstl/methods/simvp.py": "17a11bcba85dc9856e5bca46b3e9288986238ec0042d39f77fe1210579d75e1e",
+    "openstl/utils/predrnn_utils.py": "b4a039f7f859b26c72a819df523d340ae4ba6c718d135b8a853b4cde109adfd0"
+  },
+  "adaptation": {
+    "convlstm_cell.py": "Unchanged byte-for-byte copy of openstl/modules/convlstm_modules.py.",
+    "predrnnv2_cell.py": "Unchanged byte-for-byte copy of openstl/modules/predrnnv2_modules.py.",
+    "simvp_incepu.py": "Independent import port: unchanged selected class/function source from simvp_modules.py and simvp_model.py, with imports restricted to torch and torch.nn.init.trunc_normal_. Only the original IncepU variant is included."
+  },
+  "reference_files": {
+    "reference/convlstm_model.py": "openstl/models/convlstm_model.py",
+    "reference/predrnnv2_model.py": "openstl/models/predrnnv2_model.py",
+    "reference/simvp_model.py": "openstl/models/simvp_model.py",
+    "reference/simvp_modules.py": "openstl/modules/simvp_modules.py",
+    "reference/predrnn_utils.py": "openstl/utils/predrnn_utils.py"
+  }
+}

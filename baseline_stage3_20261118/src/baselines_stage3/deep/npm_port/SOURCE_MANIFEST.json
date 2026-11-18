@@ -1,0 +1,56 @@
+{
+  "title": "Data-driven Precipitation Nowcasting Using Satellite Imagery",
+  "authors": ["Young-Jae Park", "Doyi Kim", "Minseok Seo", "Hae-Gon Jeon", "Yeji Choi"],
+  "repository": "https://github.com/seominseok0429/Data-driven-Precipitation-Nowcasting-Using-Satellite-Imagery",
+  "revision": "52ca97702f9d9b7e314cf0ce9e053d3aa06c5bea",
+  "migration_repository": "https://huggingface.co/datasets/minseok96/SAR2RDR-Dataset",
+  "migration_revision": "8270366c9bd82e7cdd22a3762237ece47d6eeb47",
+  "migration_inspection": "The pinned migrated repository has data and preprocessing resources, not an updated network implementation.",
+  "verified_date": "2026-11-18",
+  "source_sha256": {
+    "model.py": "ea3940735b9ba5bb065ad68a95a4773cb9cc4539f6711afd337708a2406c53e6",
+    "modules.py": "8fe77202d50308010619f4a92ee8062c731462a369abb35bdc91090787a442e7",
+    "sat2rdr/models/pix2pixhd.py": "cc204314d93bdd73f580f487f967bb11fcb68714493a22ad2d98deca6f39c4f9",
+    "exp.py": "974779df88aa65b59d56c51a28f0aafce16adb1773ac19b3ead12996dcfb344b",
+    "main.py": "a81250c99a2106436cbc251071090f4ba2a5ba32095372aa163b85440cf9ab24",
+    "sat2rdr/train.py": "fb66ed30a90cb780e9c29d43708bb2b9f27b2937497ea991503eb159dd7d89ad",
+    "API/dataloader_sat.py": "ff5a6dee2f514d4c04d05dcc2a6d0414b1c0c833bd7db7a06748159ab1956971",
+    "sat2rdr/dataloader.py": "4c2a59633aae7be312664afe1eef50f8e1e2fb9bfffe2c6912f27700dbc57f6d",
+    "sat2rdr/loss.py": "77ca8f4572ba67aed1770ba274609265ca92c9481f1a26e49e210d1aa9289e05",
+    "main.pdf": "fe59226726736d1984a97253087e1e4527aebdb721efbcdf23ff887a6c00f172",
+    "supple.pdf": "7928a3af08560ce124dbee0b002a06ec81ba2d5e3ae10fd9cb4e54869fc63efd"
+  },
+  "port_files": {
+    "forecaster.py": ["model.py", "modules.py"],
+    "translator.py": ["sat2rdr/models/pix2pixhd.py", "sat2rdr/train.py"]
+  },
+  "adaptations": [
+    "Isolated torch-only namespace; no upstream edits or runtime monkeypatches.",
+    "Four observed satellite frames with ten channels predict four future satellite frames.",
+    "No DEM, historical radar/rain, or future observations are accepted by the forward API.",
+    "Return all ten forecast channels instead of the upstream hardcoded first three channels.",
+    "Keep the eight executed temporal blocks; omit the registered but never executed ninth block.",
+    "Preserve the ResNet/ReLU/BatchNorm generator graph with four downsampling stages and nine residual blocks.",
+    "Reduce generator base width from 64 to 30 for full-pipeline parameter matching.",
+    "Use linear precipitation readout in the native unbounded project label domain instead of upstream Tanh.",
+    "Use calendar day 1..366 and fractional hour [0,24), conditioned on the last observed frame.",
+    "Joint rain/satellite MSE 2:1 is a transfer protocol, not a reproduction of original separate GAN training."
+  ],
+  "parameter_count": {
+    "forecaster": 5306122,
+    "translator": 40125031,
+    "total": 45431153,
+    "reference": 44162136
+  },
+  "verification": {
+    "upstream_forecast_shared_weights_tolerance": {"rtol": 0.000001, "atol": 0.000001},
+    "upstream_generator_shared_weights_tolerance_after_tanh": {"rtol": 0.000001, "atol": 0.000001},
+    "default_forward_input": [1, 10, 4, 448, 448],
+    "default_forward_rain": [1, 1, 4, 448, 448],
+    "default_forward_satellite": [1, 10, 4, 448, 448],
+    "default_forward_finite": true,
+    "default_width_depth_training_spatial_size": 32,
+    "default_width_depth_training_all_gradients_finite": true,
+    "default_width_depth_training_optimizer_updated": true
+  }
+}

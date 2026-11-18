@@ -1,0 +1,163 @@
+[
+  {
+    "method": "convlstm",
+    "parameters": 44115132,
+    "inactive_upstream_parameters": 9172800,
+    "active_parameters": 34942332,
+    "ratio_to_reference": 0.9989356493082672,
+    "model": {
+      "name": "convlstm",
+      "options": {
+        "image_size": 448,
+        "context_frames": 7,
+        "in_channels": 12,
+        "num_hidden": [
+          210,
+          210,
+          210,
+          210
+        ],
+        "patch_size": 4,
+        "filter_size": 5,
+        "layer_norm": false
+      }
+    },
+    "training_steps": 70000,
+    "protocol": "progressively_observed_radar_satellite",
+    "measurement": "Exact instantiated tensor dimensions on meta device; no full-size training memory estimate."
+  },
+  {
+    "method": "predrnn_v2",
+    "parameters": 44110764,
+    "inactive_upstream_parameters": 0,
+    "active_parameters": 44110764,
+    "ratio_to_reference": 0.9988367410489384,
+    "model": {
+      "name": "predrnn_v2",
+      "options": {
+        "image_size": 448,
+        "context_frames": 7,
+        "in_channels": 12,
+        "num_hidden": [
+          164,
+          164,
+          164,
+          164
+        ],
+        "patch_size": 4,
+        "filter_size": 5,
+        "layer_norm": false
+      }
+    },
+    "training_steps": 70000,
+    "protocol": "progressively_observed_radar_satellite",
+    "measurement": "Exact instantiated tensor dimensions on meta device; no full-size training memory estimate."
+  },
+  {
+    "method": "simvp",
+    "parameters": 43830168,
+    "inactive_upstream_parameters": 0,
+    "active_parameters": 43830168,
+    "ratio_to_reference": 0.9924829722910142,
+    "model": {
+      "name": "simvp",
+      "options": {
+        "image_size": 448,
+        "context_frames": 7,
+        "in_channels": 12,
+        "hid_S": 64,
+        "hid_T": 448,
+        "N_S": 4,
+        "N_T": 8
+      }
+    },
+    "training_steps": 70000,
+    "protocol": "progressively_observed_radar_satellite",
+    "measurement": "Exact instantiated tensor dimensions on meta device; no full-size training memory estimate."
+  },
+  {
+    "method": "earthformer",
+    "parameters": 43994260,
+    "inactive_upstream_parameters": 0,
+    "active_parameters": 43994260,
+    "ratio_to_reference": 0.9961986440148638,
+    "model": {
+      "name": "earthformer",
+      "options": {
+        "image_size": 448,
+        "context_frames": 7,
+        "in_channels": 12,
+        "base_units": 288,
+        "depths": [
+          1,
+          1
+        ],
+        "num_heads": 4,
+        "stem_dims": [
+          36,
+          144,
+          288
+        ],
+        "stem_scales": [
+          4,
+          2,
+          2
+        ],
+        "num_global_vectors": 8
+      }
+    },
+    "training_steps": 70000,
+    "protocol": "progressively_observed_radar_satellite",
+    "measurement": "Exact instantiated tensor dimensions on meta device; no full-size training memory estimate."
+  },
+  {
+    "method": "alphapre",
+    "parameters": 44702307,
+    "inactive_upstream_parameters": 0,
+    "active_parameters": 44702307,
+    "ratio_to_reference": 1.0122315415178287,
+    "model": {
+      "name": "alphapre",
+      "options": {
+        "image_size": 448,
+        "context_frames": 7,
+        "in_channels": 12,
+        "hidden_dim": 496,
+        "rain_linear_amplitude": true,
+        "spec_num": 20,
+        "pha_weight": 0.01,
+        "anet_weight": 0.1,
+        "amp_weight": 0.01,
+        "aweight_stop_steps": 10000
+      }
+    },
+    "training_steps": 70000,
+    "protocol": "progressively_observed_radar_satellite",
+    "measurement": "Exact instantiated tensor dimensions on meta device; no full-size training memory estimate."
+  },
+  {
+    "method": "npm",
+    "parameters": 45431153,
+    "inactive_upstream_parameters": 0,
+    "active_parameters": 45431153,
+    "ratio_to_reference": 1.0287354080880509,
+    "model": {
+      "name": "npm",
+      "options": {
+        "image_size": 448,
+        "context_frames": 4,
+        "in_channels": 10,
+        "hidden": 64,
+        "spatial_depth": 4,
+        "temporal_depth": 8,
+        "translator_width": 30,
+        "translator_downsamples": 4,
+        "translator_residual_blocks": 9,
+        "translator_norm": "BatchNorm2d"
+      }
+    },
+    "training_steps": 70000,
+    "protocol": "fixed_origin_satellite_only",
+    "measurement": "Exact instantiated tensor dimensions on meta device; no full-size training memory estimate."
+  }
+]

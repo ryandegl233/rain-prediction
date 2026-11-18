@@ -1,0 +1,11 @@
+name: earthformer
+options:
+  image_size: ${dataset.img_size}
+  context_frames: 7
+  in_channels: 12
+  base_units: 288
+  depths: [1, 1]
+  num_heads: 4
+  stem_dims: [36, 144, 288]
+  stem_scales: [4, 2, 2]
+  num_global_vectors: 8

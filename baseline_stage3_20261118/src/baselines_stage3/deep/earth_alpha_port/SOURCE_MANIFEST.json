@@ -1,0 +1,72 @@
+[
+  {
+    "repository": "earth-forecasting-transformer",
+    "commit": "7732b03bdb366110563516c3502315deab4c2026",
+    "source": "src/earthformer/__init__.py",
+    "path": "earthformer/__init__.py",
+    "sha256": "3576caf8c1e37ab31f205eb71242da0045111a83e7043003b555f59543d6fefc"
+  },
+  {
+    "repository": "earth-forecasting-transformer",
+    "commit": "7732b03bdb366110563516c3502315deab4c2026",
+    "source": "src/earthformer/cuboid_transformer/__init__.py",
+    "path": "earthformer/cuboid_transformer/__init__.py",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "repository": "earth-forecasting-transformer",
+    "commit": "7732b03bdb366110563516c3502315deab4c2026",
+    "source": "src/earthformer/cuboid_transformer/cuboid_transformer.py",
+    "path": "earthformer/cuboid_transformer/cuboid_transformer.py",
+    "sha256": "6519e56cb39c8e8af7d3b5cdbe780889be3abf51b2c5942aaf8d657dd07a9a76"
+  },
+  {
+    "repository": "earth-forecasting-transformer",
+    "commit": "7732b03bdb366110563516c3502315deab4c2026",
+    "source": "src/earthformer/cuboid_transformer/cuboid_transformer_patterns.py",
+    "path": "earthformer/cuboid_transformer/cuboid_transformer_patterns.py",
+    "sha256": "2158c10c348fc12b7ef5e9e99e56f5d828833e313080a3fb2e5054ac86002dd7"
+  },
+  {
+    "repository": "earth-forecasting-transformer",
+    "commit": "7732b03bdb366110563516c3502315deab4c2026",
+    "source": "src/earthformer/cuboid_transformer/utils.py",
+    "path": "earthformer/cuboid_transformer/utils.py",
+    "sha256": "5ec3dfae7dc3db782472faa39ad083c567349db60f051e4fb16309eed98fede7"
+  },
+  {
+    "repository": "earth-forecasting-transformer",
+    "commit": "7732b03bdb366110563516c3502315deab4c2026",
+    "source": "src/earthformer/utils/__init__.py",
+    "path": "earthformer/utils/__init__.py",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "repository": "earth-forecasting-transformer",
+    "commit": "7732b03bdb366110563516c3502315deab4c2026",
+    "source": "src/earthformer/utils/registry.py",
+    "path": "earthformer/utils/registry.py",
+    "sha256": "ba9b68652b9af236a83729ad3ed5d646e003245966285a4b0550748e27b38c4c"
+  },
+  {
+    "repository": "earth-forecasting-transformer",
+    "commit": "7732b03bdb366110563516c3502315deab4c2026",
+    "source": "LICENSE",
+    "path": "earthformer/LICENSE",
+    "sha256": "88046bf22d5b4f4b8cc85079ae6aae5424a3a1999db952ed152828ff325b2c6d"
+  },
+  {
+    "repository": "earth-forecasting-transformer",
+    "commit": "7732b03bdb366110563516c3502315deab4c2026",
+    "source": "NOTICE",
+    "path": "earthformer/NOTICE",
+    "sha256": "3b921bdc93d93a9db034684b0b3154f1d4bab94b275be2fe37ccbf6d7f285b66"
+  },
+  {
+    "repository": "AlphaPre",
+    "commit": "64d5195984c72db2692266acc800efa34ff8a4bf",
+    "source": "models/alphapre.py",
+    "path": "alphapre/models/alphapre.py",
+    "sha256": "eaba46b8afc0927d772a70a3405f80f7e43dc062974930f364e8042810ca7fa8"
+  }
+]
